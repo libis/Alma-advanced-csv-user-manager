@@ -1,34 +1,22 @@
 {
-   "id": "Alma-csv-updater",
+   "id": "Alma-csv-user-update-manager",
    "title": [
       {
          "lang": "en",
-         "text": "Alma CSV User Update"
-      },
-      {
-         "lang": "es",
-         "text": "Alma CSV User Update"
+         "text": "Alma CSV user load manager (Beta)"
       }
    ],
    "subtitle": [
       {
          "lang": "en",
-         "text": "Load users from comma-separated file"
-      },
-      {
-         "lang": "es",
-         "text": "Cargar usuarios desde un archivo separado por comas"
+         "text": "Create, update and delete users from comma-separated files"
       }
    ],
    "author": "LJ - LIBIS",
    "description": [
       {
          "lang": "en",
-         "text": "With this app, you can create Alma users from a list in a comma separated file. It supports finegrained configuration in multiple profiles."
-      },
-      {
-         "lang": "es",
-         "text": "Con esta aplicación, puede crear usuarios de Alma a partir de una lista en un archivo separado por comas. Es compatible con la configuración flexible en múltiples perfiles."
+         "text": "The Alma CSV user load manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. It supports finegrained configuration at the field level in multiple import profiles."
       }
    ],
    "icon": {

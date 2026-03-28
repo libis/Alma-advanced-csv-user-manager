@@ -33,9 +33,7 @@ import { marker as _ } from '@biesbjerg/ngx-translate-extract-marker';
 
       /* Update strategies must be the same for all components of composite fields */
     Object.keys(COMPOSITE_FIELDS).forEach(key => {
-      console.log(key);
         let updateCheck = new Set(fields.value.filter(f => f['fieldName'].startsWith(key)).map(f => f['swap']))
-        console.log(updateCheck);
         if (updateCheck.size > 1){
           errorArray.push({code:_('Settings.Validation.InconsistentUpdateStrategy'), params:{field:COMPOSITE_FIELDS[key]}});
         }
