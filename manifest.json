@@ -18,6 +18,7 @@
          "text": "The Alma CSV user load manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. It supports finegrained configuration at the field level in multiple import profiles."
       }
    ],
+   "relevantForInst": [ "32KUL_NBB", "32KUL_KUL" ],
    "icon": {
       "type": "font",
       "value": "fa fa-file-excel-o"
