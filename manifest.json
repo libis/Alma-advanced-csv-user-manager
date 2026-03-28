@@ -1,0 +1,51 @@
+{
+   "id": "Alma-csv-updater",
+   "title": [
+      {
+         "lang": "en",
+         "text": "Alma CSV User Update"
+      },
+      {
+         "lang": "es",
+         "text": "Alma CSV User Update"
+      }
+   ],
+   "subtitle": [
+      {
+         "lang": "en",
+         "text": "Load users from comma-separated file"
+      },
+      {
+         "lang": "es",
+         "text": "Cargar usuarios desde un archivo separado por comas"
+      }
+   ],
+   "author": "LJ - LIBIS",
+   "description": [
+      {
+         "lang": "en",
+         "text": "With this app, you can create Alma users from a list in a comma separated file. It supports finegrained configuration in multiple profiles."
+      },
+      {
+         "lang": "es",
+         "text": "Con esta aplicación, puede crear usuarios de Alma a partir de una lista en un archivo separado por comas. Es compatible con la configuración flexible en múltiples perfiles."
+      }
+   ],
+   "icon": {
+      "type": "font",
+      "value": "fa fa-file-excel-o"
+   },
+   "pages": {
+      "config": "/#/config"
+   },
+   "contentSecurity": {
+      "sandbox": {
+         "modals": true,
+         "downloads": true
+      }
+   },
+   "fullscreen": {
+      "allow": true,
+      "open": false
+   }
+}

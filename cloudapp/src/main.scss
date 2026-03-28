@@ -1,0 +1,11 @@
+
+@mixin themed-styles($theme, $typography) {
+    /* Include themed component mixins or theme dependent styles here */
+}
+
+@mixin global-styles {
+    /* Add global styles here */
+    body {
+        margin-top: 10px!important;
+    }
+}

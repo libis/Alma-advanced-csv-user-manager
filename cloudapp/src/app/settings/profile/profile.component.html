@@ -1,0 +1,140 @@
+<div class="profile-container">
+  <mat-form-field class="full-width">
+    <mat-label translate>Profile.UserType</mat-label>
+    <mat-select [formControl]="accountType">
+      <mat-option value="INTERNAL"><span translate>Profile.Internal</span></mat-option>
+      <mat-option value="EXTERNAL"><span translate>Profile.External</span></mat-option>
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field class="full-width">
+    <mat-label translate>Profile.ProfileType</mat-label>
+    <mat-select [formControl]="profileType">
+      <mat-option value="ADD"><span translate>Profile.Add</span></mat-option>
+      <mat-option value="UPDATE"><span translate>Profile.Update</span></mat-option>
+      <mat-option value="DELETE"><span translate>Profile.Delete</span></mat-option>
+      <!---<mat-option value="ENRICH"><span translate>Profile.Enrich</span></mat-option>-->
+    </mat-select>
+  </mat-form-field>
+  
+  <h3 translate>Profile.FieldMapping</h3>
+  
+  <mat-table #table [dataSource]="fields.controls">
+  >
+    <!-- Header Column -->
+    <ng-container matColumnDef="header">
+      <mat-header-cell *matHeaderCellDef translate>Profile.Header</mat-header-cell>
+      <mat-cell *matCellDef="let field" [formGroup]="field" class="border-right">
+        <mat-form-field appearance="fill">
+          <input type="text" matInput formControlName="header" [placeholder]="'Profile.Header' | translate"/>
+        </mat-form-field>
+      </mat-cell>
+    </ng-container>  
+  
+    <!-- Default Column -->
+    <ng-container matColumnDef="default">
+        <mat-header-cell *matHeaderCellDef translate>Profile.Default</mat-header-cell>
+        <mat-cell *matCellDef="let field" [formGroup]="field">
+          <mat-form-field appearance="fill">
+            <input type="text" matInput formControlName="default" [placeholder]="'Profile.Default' | translate"/>
+          </mat-form-field>
+        </mat-cell>
+      </ng-container>  
+  
+    <!-- Name Column -->
+    <ng-container matColumnDef="name">
+      <mat-header-cell *matHeaderCellDef translate>Profile.Name</mat-header-cell>
+      <mat-cell *matCellDef="let field" [formGroup]="field">
+        <mat-form-field floatLabel="never" appearance="fill">
+          <mat-select formControlName="fieldName" placeholder="Field Name">
+            <mat-option value="primary_id">Primary ID</mat-option>
+            <mat-option value="first_name">First Name</mat-option>
+            <mat-option value="middle_name">Middle Name</mat-option>
+            <mat-option value="last_name">Last Name</mat-option>
+            <mat-option value="contact_info.address[].line1">Address Line 1</mat-option>
+            <mat-option value="contact_info.address[].line2">Address Line 2</mat-option>
+            <mat-option value="contact_info.address[].line3">Address Line 3</mat-option>
+            <mat-option value="contact_info.address[].line4">Address Line 4</mat-option>
+            <mat-option value="contact_info.address[].line5">Address Line 5</mat-option>
+            <mat-option value="contact_info.address[].city">City</mat-option>
+            <mat-option value="contact_info.address[].state_province">State</mat-option>
+            <mat-option value="contact_info.address[].postal_code">Postal Code</mat-option>
+            <mat-option value="contact_info.address[].country.value">Country Code</mat-option>
+            <mat-option value="contact_info.address[].address_type.0.value">Address Type (home, work)</mat-option>
+            <mat-option value="contact_info.email[].email_address">Email address</mat-option>
+            <mat-option value="contact_info.email[].email_type.0.value">Email address type (personal, work)</mat-option>
+            <mat-option value="contact_info.phone[].phone_number">Phone Number</mat-option>
+            <mat-option value="contact_info.phone[].phone_type.0.value">Phone Type (home, office, mobile)</mat-option>
+            <mat-option value="user_identifier[].id_type.value">Identifier Type</mat-option>
+            <mat-option value="user_identifier[].value">Identifier Value</mat-option>
+            <mat-option value="user_identifier[].note">Identifier Note</mat-option>
+            <mat-option value="user_note[].note_type.value">Note type</mat-option>
+            <mat-option value="user_note[].note_text">Note text</mat-option>
+            <mat-option value="user_note[].user_viewable">Note visible to patrons (true/false)</mat-option>
+            <mat-option value="user_note[].popup_note">Note pops up in patron services (true/false)</mat-option>
+            <mat-option value="user_statistic[].category_type.value">Category type</mat-option>
+            <mat-option value="user_statistic[].statistic_category.value">Statistical category</mat-option>
+            <mat-option value="user_group.value">User Group</mat-option>
+            <mat-option value="campus_code.value">Campus Code</mat-option>
+            <mat-option value="preferred_language.value">Preferred Language</mat-option>
+            <mat-option value="gender.value">Gender</mat-option>
+            <mat-option value="birth_date">Birth Date (yyyy-mm-dd)</mat-option>
+            <mat-option value="expiry_date">Expiration Date (yyyy-mm-dd)</mat-option>
+            <mat-option value="purge_date">Purge Date (yyyy-mm-dd)</mat-option>
+            <mat-option value="password">Password</mat-option>
+            <mat-option value="force_password_change">Force password change (TRUE/FALSE)</mat-option>
+            <mat-option value="pref_first_name">Prefrerred First Name</mat-option>
+            <mat-option value="pref_middle_name">Prefrerred Middle Name</mat-option>
+            <mat-option value="pref_last_name">Preferred Last Name</mat-option>
+            <mat-option value="external_id">External System Code</mat-option>
+            <mat-option value="record_type.value">Record Type</mat-option>
+            <mat-option value="job_category.value">Job Category</mat-option>
+            <mat-option value="job_description">Job Description</mat-option>
+            <mat-option value="pin_number">PIN Number</mat-option>
+            <mat-option value="proxy_for_user[].primary_id">Proxy For User ID</mat-option>
+            <mat-option value="user_title.value">Title</mat-option>
+            <mat-option value="status.value">User Status</mat-option>
+            <mat-option value="rs_library[].code.value">Resource Sharing Library</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </mat-cell>
+    </ng-container>
+    
+    <!-- Name Column -->
+    <ng-container matColumnDef="swap" *ngIf="profileType.value === 'UPDATE'">
+      <mat-header-cell *matHeaderCellDef translate>Profile.Swap</mat-header-cell>
+      <mat-cell *matCellDef="let field" [formGroup]="field" >
+        <mat-form-field floatLabel="never" appearance="fill">
+            <mat-select formControlName="swap" value="KEEP" [disabled]="field.get('fieldName').value == 'primary_id'">
+            <mat-option value="KEEP"><span translate>Profile.Keep</span></mat-option>
+            <mat-option value="ENRICH" *ngIf="field.get('fieldName').value.includes('[]')"><span translate>Profile.Enrich</span></mat-option>
+            <mat-option value="REPLACE"><span translate>Profile.Replace</span></mat-option>
+          </mat-select>
+        </mat-form-field>
+      </mat-cell>
+    </ng-container>
+  
+    <!-- Actions Column -->
+    <ng-container matColumnDef="actions">
+      <mat-header-cell *matHeaderCellDef>  </mat-header-cell>
+      <mat-cell  *matCellDef="let field;  let j = index;">
+        <button type="button" (click)="removeField(j)" mat-icon-button aria-label="Delete field">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </mat-cell>
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef=showColumns></mat-header-row>
+    <mat-row *matRowDef="let row; columns: showColumns"></mat-row>  
+  </mat-table>
+  <button type="button" (click)="addField()" mat-icon-button aria-label="Add field">
+    <mat-icon>add_circle</mat-icon>
+  </button>
+  
+  <div *ngIf="fields.invalid " class="alert alert-danger">
+    <ul>
+      <li *ngFor="let error of fields.errors">
+        <span [translate]="error.code" [translateParams]="error.params"></span>
+      </li>
+    </ul>
+  </div>  
+  </div>

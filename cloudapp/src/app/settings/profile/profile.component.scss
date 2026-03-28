@@ -1,0 +1,22 @@
+.mat-column-actions {
+  flex: 0 0 50px;
+}
+
+.alert-danger {
+  color: red;
+}
+
+.mat-header-cell,
+.mat-cell {
+  padding: 5px;
+}
+
+.full-width {
+  width: 80%;
+}
+
+.mat-cell:first-child,
+.mat-footer-cell:first-child,
+.mat-header-cell:first-child {
+    padding-left: 0px !important;
+}
