@@ -22,6 +22,35 @@
     <ngx-dropzone-label>{{ f.name }}</ngx-dropzone-label>
   </ngx-dropzone-preview>
 </ngx-dropzone>
+
+<div *ngIf="selectedProfile">
+  <h2>Profile settings</h2>
+  <p><strong>Profile type: </strong><span translate="Profile.{{selectedProfile.profileType}}"></span></p>
+  <p><strong>User type: </strong><span translate="Profile.{{selectedProfile.accountType}}"></span></p>
+  <p><strong>Field mappings:</strong></p>
+  <mat-table #table [dataSource]="selectedProfile.fields">
+    <ng-container matColumnDef="header">
+      <th mat-header-cell *matHeaderCellDef translate class="border-right">Profile.Header</th>
+      <td mat-cell *matCellDef="let field" class="border-right">{{field.header}}</td>    
+    </ng-container>
+    <ng-container matColumnDef="default">
+      <th mat-header-cell *matHeaderCellDef translate class="border-right">Profile.Default</th>
+      <td mat-cell *matCellDef="let field" class="border-right">{{field.default}}</td>    
+    </ng-container>
+    <ng-container matColumnDef="name">
+      <th mat-header-cell *matHeaderCellDef translate class="border-right">Profile.Name</th>
+      <td mat-cell *matCellDef="let field" class="border-right" translate>Profile.Fieldnames.{{field.fieldName}}</td>    
+    </ng-container>
+    <ng-container matColumnDef="swap">
+      <th mat-header-cell *matHeaderCellDef translate class="border-right">Profile.Swap</th>
+      <td mat-cell *matCellDef="let field" class="border-right" translate>Profile.{{field.swap}}</td>    
+    </ng-container>
+
+    <mat-header-row *matHeaderRowDef=showColumns></mat-header-row>
+    <mat-row *matRowDef="let row; columns: showColumns"></mat-row>
+  </mat-table>
+</div>
+
 </div>
 
 <div *ngIf="results">

@@ -1,8 +1,9 @@
 {
+   "id": "libis/alma-advanced-csv-user-manager",
    "title": [
       {
          "lang": "en",
-         "text": "Alma CSV user load manager (Beta)"
+         "text": "Alma Advanced CSV User Manager (Beta)"
       }
    ],
    "subtitle": [
@@ -15,13 +16,16 @@
    "description": [
       {
          "lang": "en",
-         "text": "The Alma CSV user load manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. It supports finegrained configuration at the field level in multiple import profiles."
+         "text": "The Alma Advanced CSV User Manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. It supports finegrained configuration at the field level in multiple import profiles."
       }
    ],
-   "relevantForInst": [ "32KUL_NBB", "32KUL_KUL" ],
+   "relevantForInst": [
+      "32KUL_NBB",
+      "32KUL_KUL"
+   ],
    "icon": {
-      "type": "font",
-      "value": "fa fa-file-excel-o"
+      "type": "url",
+      "value": "/assets/Logo.png"
    },
    "pages": {
       "config": "/#/config"

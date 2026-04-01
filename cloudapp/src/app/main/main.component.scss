@@ -11,3 +11,30 @@ pre {
   display: block;
   margin-bottom: 10px;
 }
+
+.mat-cell:first-child,
+.mat-footer-cell:first-child,
+.mat-header-cell:first-child {
+    padding-left: 0px !important;
+}
+
+.mat-header-cell,
+.mat-cell {
+  flex: 1 1 0;
+  padding: 5px;
+  border-bottom: none !important;
+}
+
+.profile-list {
+  display: flex;
+  align-items: center;
+}
+
+.profile-list .mat-header-cell{
+ font-weight: bold;
+ font-size: 3em;
+}
+
+.fields-table {
+  width: 100%;
+}

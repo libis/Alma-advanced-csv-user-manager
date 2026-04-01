@@ -2,23 +2,23 @@
   <mat-form-field class="full-width">
     <mat-label translate>Profile.UserType</mat-label>
     <mat-select [formControl]="accountType">
-      <mat-option value="INTERNAL"><span translate>Profile.Internal</span></mat-option>
-      <mat-option value="EXTERNAL"><span translate>Profile.External</span></mat-option>
+      <mat-option value="INTERNAL"><span translate>Profile.INTERNAL</span></mat-option>
+      <mat-option value="EXTERNAL"><span translate>Profile.EXTERNAL</span></mat-option>
     </mat-select>
   </mat-form-field>
   <mat-form-field class="full-width">
     <mat-label translate>Profile.ProfileType</mat-label>
     <mat-select [formControl]="profileType">
-      <mat-option value="ADD"><span translate>Profile.Add</span></mat-option>
-      <mat-option value="UPDATE"><span translate>Profile.Update</span></mat-option>
-      <mat-option value="DELETE"><span translate>Profile.Delete</span></mat-option>
+      <mat-option value="ADD"><span translate>Profile.ADD</span></mat-option>
+      <mat-option value="UPDATE"><span translate>Profile.UPDATE</span></mat-option>
+      <mat-option value="DELETE"><span translate>Profile.DELETE</span></mat-option>
       <!---<mat-option value="ENRICH"><span translate>Profile.Enrich</span></mat-option>-->
     </mat-select>
   </mat-form-field>
   
   <h3 translate>Profile.FieldMapping</h3>
   
-  <mat-table #table [dataSource]="fields.controls">
+  <mat-table #table [dataSource]="fields.controls" class="profile-list">
   >
     <!-- Header Column -->
     <ng-container matColumnDef="header">
@@ -105,9 +105,9 @@
       <mat-cell *matCellDef="let field" [formGroup]="field" >
         <mat-form-field floatLabel="never" appearance="fill">
             <mat-select formControlName="swap" value="KEEP" [disabled]="field.get('fieldName').value == 'primary_id'">
-            <mat-option value="KEEP"><span translate>Profile.Keep</span></mat-option>
-            <mat-option value="ENRICH" *ngIf="field.get('fieldName').value.includes('[]')"><span translate>Profile.Enrich</span></mat-option>
-            <mat-option value="REPLACE"><span translate>Profile.Replace</span></mat-option>
+            <mat-option value="KEEP"><span translate>Profile.KEEP</span></mat-option>
+            <mat-option value="ENRICH" *ngIf="field.get('fieldName').value.includes('[]')"><span translate>Profile.ENRICH</span></mat-option>
+            <mat-option value="REPLACE"><span translate>Profile.REPLACE</span></mat-option>
           </mat-select>
         </mat-form-field>
       </mat-cell>

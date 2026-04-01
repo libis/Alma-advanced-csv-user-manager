@@ -39,6 +39,10 @@ export class MainComponent implements OnInit {
   files: File[] = [];
   config: Settings;
   selectedProfile: Profile;
+    displayedColumns = {
+    'Base': ['header', 'default', 'name'],
+    'Update': ['header', 'default', 'name','swap']
+  };
   missingFields: string[] = [];
   results = "";
   resultsSummary: string;
@@ -121,6 +125,8 @@ export class MainComponent implements OnInit {
   compareProfiles(o1: Profile, o2: Profile): boolean {
     return o1 && o2 ? o1.name === o2.name : o1 === o2;
   }
+
+  get showColumns() {return this.selectedProfile.profileType === 'UPDATE' ? this.displayedColumns['Update']: this.displayedColumns['Base']}
 
   // Method to parse csv files - calls the parse method
   load() {
