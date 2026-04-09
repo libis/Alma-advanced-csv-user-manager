@@ -24,10 +24,10 @@
 </ngx-dropzone>
 
 <div *ngIf="selectedProfile">
-  <h2>Profile settings</h2>
-  <p><strong>Profile type: </strong><span translate="Profile.{{selectedProfile.profileType}}"></span></p>
-  <p><strong>User type: </strong><span translate="Profile.{{selectedProfile.accountType}}"></span></p>
-  <p><strong>Field mappings:</strong></p>
+  <h2 translate>Profile.ProfileSettings</h2>
+  <p><strong><span translate="Profile.ProfileType"></span>: </strong><span translate="Profile.{{selectedProfile.profileType}}"></span></p>
+  <p><strong><span translate="Profile.UserType"></span>: </strong><span translate="Profile.{{selectedProfile.accountType}}"></span></p>
+  <p><strong><span translate="Profile.FieldMapping"></span>:</strong></p>
   <mat-table #table [dataSource]="selectedProfile.fields">
     <ng-container matColumnDef="header">
       <th mat-header-cell *matHeaderCellDef translate class="border-right">Profile.Header</th>

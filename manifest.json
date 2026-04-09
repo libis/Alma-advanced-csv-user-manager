@@ -4,19 +4,43 @@
       {
          "lang": "en",
          "text": "Alma Advanced CSV User Manager (Beta)"
+      },
+      {
+         "lang": "fr",
+         "text": "Alma Advanced CSV User Manager (Bèta)"
+      },
+      {
+         "lang": "nl",
+         "text": "Alma Advanced CSV User Manager (Bèta)"
       }
    ],
    "subtitle": [
       {
          "lang": "en",
-         "text": "Create, update and delete users from comma-separated files"
+         "text": "Create, update and delete Alma users from comma-separated files"
+      },
+      {
+         "lang": "fr",
+         "text": "Créez, mettez à jour et supprimez des utilisateurs Alma à partir de fichiers csv"
+      },
+      {
+         "lang": "nl",
+         "text": "Creëer, update en verwijder Alma users op basis van csv-bestanden"
       }
    ],
    "author": "LJ - LIBIS",
    "description": [
       {
          "lang": "en",
-         "text": "The Alma Advanced CSV User Manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. It supports finegrained configuration at the field level in multiple import profiles."
+         "text": "The Alma Advanced CSV User Manager (Beta) allows custom create, update and delete actions of Alma users from a csv-file. Multiple import profiles may be defined with update configuration at the field level."
+      },
+      {
+         "lang": "fr",
+         "text": "L'Alma Advanced CSV User Manager (Bèta) permet de créer, mettre à jour et supprimer des comptes utilisateurs dans Alma à partir de fichiers csv. Plusieurs profils d'importation peuvent être définis avec une configuration de stratégies de mise à jour au niveau de champs individuels."
+      },
+      {
+         "lang": "nl",
+         "text": "De Alma Advanced CSV User Manager (Bèta) maakt het mogelijk om gebruikers in Alma aan te maken, te updaten en te verwijderen op basis van csv-bestanden. Er kunnen meerdere importprofielen worden gedefinieerd met update configuratie op veldniveau."
       }
    ],
    "relevantForInst": [

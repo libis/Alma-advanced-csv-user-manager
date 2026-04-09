@@ -10,6 +10,7 @@ import { Papa, ParseResult } from "ngx-papaparse";
 import { Settings, Profile } from "../models/settings";
 import {
   CloudAppConfigService,
+  CloudAppRestService,
   CloudAppStoreService,
   RestErrorResponse,
 } from "@exlibris/exl-cloudapp-angular-lib";
@@ -43,6 +44,7 @@ export class MainComponent implements OnInit {
     'Base': ['header', 'default', 'name'],
     'Update': ['header', 'default', 'name','swap']
   };
+  user: any;
   missingFields: string[] = [];
   results = "";
   resultsSummary: string;
@@ -62,10 +64,24 @@ export class MainComponent implements OnInit {
     private translate: TranslateService,
     private dialogs: DialogService,
     private storeService: CloudAppStoreService,
+    private restService: CloudAppRestService,
   ) {}
 
   ngOnInit() {
     this.loading = true;
+
+// Collect loggedin user
+    this.restService.call<any>("/almaws/v1/users/ME").subscribe(
+      (user) => {
+        this.user = user;
+        this.translate.use(this.user.preferred_language.value);
+        console.log("Logged in user language: ", this.user.preferred_language.value);
+      },
+      (err) => {
+        console.log("Could not retrieve user data: " + err.message);
+      }
+    );
+
     this.configService.get().subscribe(
       (config) => {
         this.config = config as Settings;
