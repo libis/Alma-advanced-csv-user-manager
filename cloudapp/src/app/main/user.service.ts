@@ -4,20 +4,26 @@ import {
   HttpMethod,
   RestErrorResponse,
 } from "@exlibris/exl-cloudapp-angular-lib";
-import { of } from "rxjs";
-import { catchError, switchMap, map } from "rxjs/operators";
+import { EMPTY, Observable, of } from "rxjs";
+import { catchError, switchMap, map, expand, reduce } from "rxjs/operators";
 import { Field, Profile } from "../models/settings";
 import * as dot from "dot-object";
 import { ARRAY_INDICATOR, COMPOSITE_FIELDS } from "../models/settings-utils";
+
+export interface UserResponse {
+  user: any[],
+  total_record_count: number
+}
 
 @Injectable({
   providedIn: "root",
 })
 export class UserService {
+  private readonly PAGE_SIZE: number = 100;
+
   constructor(private restService: CloudAppRestService) {}
 
   // *** Method Group 1: General use methods
-
   private checkRepeatableField(fieldName: string): boolean {
     return ARRAY_INDICATOR.test(fieldName);
   }
@@ -31,10 +37,35 @@ export class UserService {
   }
 
   // *** Method Group 2: API actions
-
   // Collect full user set
-  private getAllUsers(profile: Profile): any[] {
-    return [];
+  getAllUsers(): Observable<any[]> {
+
+    const getUsersPage = (offset: number) =>
+      this.restService.call<UserResponse>({
+        url: `users?offset=${offset.toString()}&limit=${this.PAGE_SIZE.toString()}&expand=full`,
+        method: HttpMethod.GET
+      });
+
+    return getUsersPage(0).pipe(
+
+      // Recursively load additional pages
+      expand((response, index) => {
+        const nextOffset = (index + 1) * this.PAGE_SIZE;
+
+        return nextOffset < response.total_record_count
+          ? getUsersPage(nextOffset)
+          : EMPTY;
+      }),
+
+      // Extract just the user arrays
+      map(response => response.user),
+
+      // Merge all pages into one array
+      reduce(
+        (allUsers, users) => [...allUsers, ...users],
+        [] as any[]
+      )
+    );
   }
 
   // Get user account - if the user is not found, the method returns null
@@ -140,9 +171,10 @@ public processCustomUser(user: any, profileType: string) {
             map(() => ({ primary_id: user.primary_id })),
             catchError((e) => of(this.handleError(e, user))),
           );
+      default:
+        return of({primary_id: user.primary_id});
     }
   }
-
 
   // *** Method Group 3: User parsing methods
 
