@@ -9,11 +9,24 @@ import { catchError, switchMap, map, expand, reduce } from "rxjs/operators";
 import { Field, Profile } from "../models/settings";
 import * as dot from "dot-object";
 import { ARRAY_INDICATOR, COMPOSITE_FIELDS } from "../models/settings-utils";
+import { CsvUser, CsvAddUser, syncUser, CsvUpdateUser } from "../models/user";
 
 export interface UserResponse {
   user: any[],
   total_record_count: number
 }
+
+export interface UpdateResult {
+  //user: syncUser;
+  success: boolean;
+  data?: string;
+  error?: RestErrorResponse;
+}
+
+const STRING_FIELDS = ['primary_id', 'first_name', 'middle_name', 'last_name', 'password', 'force_password_change', 'pref_first_name', 'pref_middle_name', 'pref_last_name', 'external_id', 'job_description', 'pin_number'];
+const VALUE_FIELDS = ['account_type', 'user_group', 'campus_code', 'preferred_language', 'record_type', 'job_category', 'user_title', 'status'];
+const STRING_LISTS = ['proxy_for_user'];
+const DATE_FIELDS = ['birth_date', 'expiry_date', 'purge_date'];
 
 @Injectable({
   providedIn: "root",
@@ -28,10 +41,16 @@ export class UserService {
     return ARRAY_INDICATOR.test(fieldName);
   }
 
-  private handleError(e: RestErrorResponse, user: any) {
-    const props = ["primary_id", "last_name", "first_name"].map((p) => user[p]);
+  private handleError(e: RestErrorResponse, user: syncUser) {
+    // Depending on the action type, return a coherent set of userdata
     if (user) {
-      e.message = e.message + ` (${props.join(", ")})`;
+    const user_props = [user.primary_id];
+    if(user.ADD !== undefined && user.ADD.first_name && user.ADD.last_name){
+      user_props.push(user.ADD.last_name);
+      user_props.push(user.ADD.first_name);
+    }
+    
+      e.message = e.message + ` (${user_props.join(", ")})`;
     }
     return e;
   }
@@ -69,56 +88,129 @@ export class UserService {
   }
 
   // Get user account - if the user is not found, the method returns null
-  private getUser(user: any) {
-    return this.restService.call(`/users/${user.primary_id}`).pipe(
-      catchError((e) => {
-        if (
-          e.error &&
-          e.error.errorList &&
-          e.error.errorList.error[0].errorCode == "401861"
-        ) {
-          return of(null);
-        } else {
-          throw e;
-        }
-      }),
-    );
-  }
+  // private getUser(user: any) {
+  //   return this.restService.call(`/users/${user.primary_id}`).pipe(
+  //     catchError((e) => {
+  //       if (
+  //         e.error &&
+  //         e.error.errorList &&
+  //         e.error.errorList.error[0].errorCode == "401861"
+  //       ) {
+  //         return of(null);
+  //       } else {
+  //         return of (e)
+  //       }
+  //     }),
+  //   );
+  // }
 
-  // Add a new user
-  private createUser(user: any) {
+  // Single action method for ADD
+  private createUser(user: syncUser) {
     return this.restService
       .call({
         url: "/users",
         method: HttpMethod.POST,
-        requestBody: user,
+        requestBody: user['ADD'],
       })
-      .pipe(catchError((e) => of(this.handleError(e, user))));
+      .pipe(
+        map(
+          (res) => ({success: true, action: 'create', data: res})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'create', error: this.handleError(e, user)})
+        )
+      );      
   }
 
-  private updateUser(user: any) {
+  // Single action method for UPDATE
+  private updateUser(user: syncUser, currUser: any) {
+    this.calcUpdatedUser(currUser, user);
+    delete currUser["user_role"];
     return this.restService
       .call({
         url: `/users/${user.primary_id}`,
         method: HttpMethod.PUT,
-        requestBody: user,
+        requestBody: currUser,
       })
-      .pipe(catchError((e) => of(this.handleError(e, user))));
+      .pipe(
+        map(
+          (res) => ({success: true, action: 'update', data: res})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'update', error: this.handleError(e, user)})
+        )
+      );
   }
 
-  private deleteUser(user: any) {
+  // Single action method for delete
+  private deleteUser(user: syncUser) {
     return this.restService
       .call({
         url: `/users/${user.primary_id}`,
         method: HttpMethod.DELETE,
       })
       .pipe(
-        map(() => ({ primary_id: user.primary_id })),
-        catchError((e) => of(this.handleError(e, user))),
+        map(
+          // When successfull, the result is in practice null, as the delete action gives back no data (html-code 204)
+          (res) => ({success: true, action: 'delete', data: {primary_id: user.primary_id}})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'delete', error: this.handleError(e, user)})
+        )
       );
   }
 
-public processCustomUser(user: any, profileType: string) {
+public processSingleUser(user: syncUser, profileType: string, currUser: any|undefined = undefined){
+switch (profileType) {
+      case "ADD":
+        return this.createUser(user);
+
+      //case "ENRICH": // Deprecated due to extension update configuration functionality
+      case "UPDATE":
+        return this.restService.call(`/users/${user.primary_id}`).pipe(
+          catchError((e) => {
+            if (
+              e.error &&
+              e.error.errorList &&
+              e.error.errorList.error[0].errorCode == "401861"
+            ) {
+              return of(null);
+            } else {
+              throw e;
+            }
+          }),
+          switchMap((original) => {
+            if (original == null) {
+              return this.createUser(user);
+            } else {
+              return this.updateUser(user, original);
+            }
+          }),
+          catchError((e) => of({success: false, action: 'update', error: this.handleError(e, user)})),
+    );
+    case "SYNC":
+          if (currUser == null) {
+              return this.createUser(user);
+            } else {
+              return this.updateUser(user, currUser);
+          }
+      case "DELETE":
+        return this.deleteUser(user);
+      
+      default:
+          return of({success: false, action: 'unknown', error:{
+            ok: false,
+            status:'unknown',
+            statusText:'unknown',
+            message: 'Unknown profile type - could not perform action',
+            error: 'Unknown profile type'
+          }
+        })
+      }
+}
+
+
+public processCustomUser(user: syncUser, profileType: string, currUser: any|undefined = undefined) {
     switch (profileType) {
       case "ADD":
         return this.restService
@@ -127,7 +219,8 @@ public processCustomUser(user: any, profileType: string) {
             method: HttpMethod.POST,
             requestBody: user['ADD'],
           })
-          .pipe(catchError((e) => of(this.handleError(e, user['ADD']))));
+          .pipe(
+            catchError((e) => of(this.handleError(e, user))));
       //case "ENRICH": // Deprecated due to extension update configuration functionality
       case "UPDATE":
         return this.restService.call(`/users/${user.primary_id}`).pipe(
@@ -151,7 +244,7 @@ public processCustomUser(user: any, profileType: string) {
               });
             } else {
               this.calcUpdatedUser(original, user);
-              delete original["user_role"];             
+              delete original["user_role"];
               return this.restService.call({
                 url: `/users/${user.primary_id}`,
                 method: HttpMethod.PUT,
@@ -161,6 +254,26 @@ public processCustomUser(user: any, profileType: string) {
           }),
           catchError((e) => of(this.handleError(e, user))),
     );
+    case "SYNC":
+          if (currUser == null) {
+              return this.restService.call({
+                url: "/users",
+                method: HttpMethod.POST,
+                requestBody: user['ADD'],
+              }).pipe(
+                catchError((e) => of(this.handleError(e, user)))  
+              );
+            } else {
+              this.calcUpdatedUser(currUser, user);
+              delete currUser["user_role"];
+              return this.restService.call({
+                url: `/users/${user.primary_id}`,
+                method: HttpMethod.PUT,
+                requestBody: currUser,
+              }).pipe(
+                catchError((e) => of(this.handleError(e, user)))  
+              );
+          }
       case "DELETE":
         return this.restService
           .call({
@@ -171,24 +284,57 @@ public processCustomUser(user: any, profileType: string) {
             map(() => ({ primary_id: user.primary_id })),
             catchError((e) => of(this.handleError(e, user))),
           );
-      default:
-        return of({primary_id: user.primary_id});
+        default:
+          return of()
+  }
+}
+
+// Verify if the user has meaningful updates. The method will return true as soon as a single updated field is found
+ private triggerUpdate(user: any, currUser: any): boolean {
+
+  if(user.REPLACE){
+  Object.keys(user.REPLACE).forEach((key: string) => {
+
+    switch(key){
+      case STRING_FIELDS.includes(key):
+        if(user.REPLACE[key] !== currUser[key]){
+          return true;
+      }
+      break;
+
+      case VALUE_FIELDS.includes(key):
+        if(user.REPLACE[key].value !== currUser[key].value){
+          return true;
+        }
     }
   }
+  );
+
+  }
+  }
+}
+
+  return false
+ }
+
+
+
 
   // *** Method Group 3: User parsing methods
 
-  // Build user objects based on csv user input
-  public buildCsvUser(user: { [key: string]: string }, selectedProfile: Profile): any {
-    let csvUser = {'primary_id':undefined};
-    if(selectedProfile.fields.find(f => f.fieldName === 'primary_id') !== undefined){
-      csvUser.primary_id = user[selectedProfile.fields.find(f => f.fieldName === 'primary_id').header].toLowerCase();
-    }
+  // Build sync user objects. Input: unprocessed CSV row => Output: complete sync user matching profile requirements
+  public buildCsvUser(user: { [key: string]: string }, selectedProfile: Profile): syncUser {
+    // Initialize new syncUser. Primary ID is set to an empty string as initial value (~ use case: user creation with automated ID assignment)
+    let csvUser: syncUser= {'primary_id':''};
+    const id_column = selectedProfile.fields.find(f => f.fieldName === 'primary_id');
+    if(id_column !== undefined && id_column.header in user){
+      csvUser.primary_id = user[id_column.header].toLowerCase();
+    }  
 
     // If profile includes create option, add create objects
     if (["ADD", "UPDATE"].includes(selectedProfile.profileType)) {
       // Create basic user object using all fields defined in the profile
-      let newUser = this.parseCsvFields(user, selectedProfile.fields);
+      let newUser: CsvUser = this.parseCsvFields(user, selectedProfile.fields);
 
       // Add general settings
       newUser["account_type"] = { value: selectedProfile.accountType };
@@ -214,22 +360,22 @@ public processCustomUser(user: any, profileType: string) {
           newUser["contact_info"]["phone"][0]["preferred_sms"] = true;
         }
       }
-      csvUser["ADD"] = newUser;
+      csvUser["ADD"] = newUser as CsvAddUser;
     }
 
     // If profile includes update options, add update and enrich objects
     if (["UPDATE", "ENRICH"].includes(selectedProfile.profileType)) {
-      csvUser["REPLACE"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "REPLACE"));
+      csvUser["REPLACE"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "REPLACE")) as CsvUpdateUser;
 
-      csvUser["ENRICH"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "ENRICH"));
+      csvUser["ENRICH"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "ENRICH")) as CsvUpdateUser;
     }
  
     return csvUser;
   }
 
-  // Build base user containing only csv fields
-  private parseCsvFields(user: { [key: string]: string }, fieldset: Field[]) {
-    let parsedUser = {};
+  // Build base user containing only csv fields. Input: unprocessed CSV row => Output: Basic CSVuser (no specific type)
+  private parseCsvFields(user: { [key: string]: string }, fieldset: Field[]): CsvUser {
+    let parsedUser: { [key: string]: string } = {};
     fieldset.forEach((f) => {
       let fieldName = f.fieldName;
 
@@ -243,7 +389,7 @@ public processCustomUser(user: any, profileType: string) {
 
       // Process fields. If a csv column is identified, values from this column are used. Else, if a default is defined, the default value is used.
       if (f.header !== "" && user[f.header] !== "") {
-        if(f.fieldName == 'primary_id'){
+        if(f.fieldName === 'primary_id'){
           user[f.header] = user[f.header].toLowerCase();
         }
         parsedUser[fieldName] = user[f.header];
@@ -314,7 +460,7 @@ public processCustomUser(user: any, profileType: string) {
   }
 
   // Copied from original Cloud App
-  private enrichRepeatableElement(originalElements, newElements) {
+  private enrichRepeatableElement(originalElements: any, newElements: any) {
     // This function will copy any of the originalElements into the newElements, thereby
     // adding repeatable elements. Thus, when the PUT happens, the "swap all" will include both
     // old and new repeatables.
@@ -323,5 +469,5 @@ public processCustomUser(user: any, profileType: string) {
         newElements.splice(newElements.length, 0, originalElements[i]);
       }
     }
-  }  
+  } 
 }

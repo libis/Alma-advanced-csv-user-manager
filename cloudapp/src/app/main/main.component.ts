@@ -22,7 +22,15 @@ import {
 } from "@angular/router";
 import { TranslateService } from "@ngx-translate/core";
 import { EMPTY, Observable, from, of, throwError } from "rxjs";
-import { catchError, map, mergeMap, switchMap, tap } from "rxjs/operators";
+import {
+  catchError,
+  finalize,
+  map,
+  mergeMap,
+  switchMap,
+  take,
+  tap,
+} from "rxjs/operators";
 import { DialogService } from "eca-components";
 import { UserService } from "./user.service";
 import { MatSelectChange } from "@angular/material/select";
@@ -30,6 +38,14 @@ import { MatSlideToggleChange } from "@angular/material/slide-toggle";
 import { ARRAY_INDICATOR } from "../models/settings-utils";
 
 const MAX_PARALLEL_CALLS = 5;
+
+const isRestErrorResponse = (object: any): object is RestErrorResponse =>
+  "error" in object;
+
+export interface CsvParseResult {
+  data: any[];
+  errors: string[];
+}
 
 @Component({
   selector: "app-main",
@@ -52,9 +68,10 @@ export class MainComponent implements OnInit {
   // Results
   @ViewChild("resultsPanel", { static: false })
   private resultsPanel?: ElementRef<HTMLElement>;
-  syncSet: {[key:string]: any} = {};
-  results: string | undefined = undefined;
-  resultsSummary: string | undefined = undefined;
+  syncSet: { [key: string]: any } = {};
+  results: string[] = [];
+  resultLog: string[] = [];
+  resultsSummary: string|undefined = '';
   processed = 0;
   recordsToProcess = 0;
   showLog: boolean = false;
@@ -88,10 +105,11 @@ export class MainComponent implements OnInit {
     private restService: CloudAppRestService,
   ) {}
 
+  // Original method keep
   ngOnInit() {
     this.loading = true;
 
-    // Collect loggedin user
+    // Collect loggedin user and set language based on user account. On error, use default language 'en'
     this.restService.call<any>("/almaws/v1/users/ME").subscribe(
       (user) => {
         this.user = user;
@@ -113,29 +131,29 @@ export class MainComponent implements OnInit {
         this.config = config as Settings;
         if (this.config.profiles && this.config.profiles.length > 0) {
           this.selectedProfile = this.config.profiles[0];
-        }
 
-        // Get stored data from storeService
-        this.storeService.get("profile").subscribe(
-          (val) => {
-            if (!!val) {
-              this.config.profiles.forEach((p) => {
-                if (p.name == val) this.selectedProfile = p;
-              });
-            }
-            this.loading = false;
-          },
-          (err) => {
-            console.error(
-              "An error occurred while loading configuration: ",
-              err,
-            );
-            this.loading = false;
-          },
-          () => {
-            this.loading = false;
-          },
-        );
+          // Get stored data from storeService
+          this.storeService.get("profile").subscribe(
+            (val) => {
+              if (!!val) {
+                this.config.profiles.forEach((p) => {
+                  if (p.name == val) this.selectedProfile = p;
+                });
+              }
+              this.loading = false;
+            },
+            (err) => {
+              console.error(
+                "An error occurred while loading configuration: ",
+                err,
+              );
+              this.loading = false;
+            },
+            () => {
+              this.loading = false;
+            },
+          );
+        }
       },
       (err) => {
         console.error("An error occurred while loading configuration: ", err);
@@ -148,45 +166,53 @@ export class MainComponent implements OnInit {
 
   /* *** Methods group 1: user interactions management *** */
 
+  // Original method keep
   // Push current profile selection to browser cache
   onSelectProfile(event: MatSelectChange) {
     this.storeService.set("profile", event.value.name).subscribe();
   }
 
+  // Original method keep
   // Add files to processing list
-  onSelect(event) {
-    console.log("Add file event type: ", typeof event);
+  onSelect(event: any) {
+    console.log("Add file event type: ", event);
     this.files.push(...event.addedFiles);
+    console.log("New list of files: ", this.files);
   }
 
+  // Original method keep
   // Remove files from processing list
-  onRemove(event) {
-    console.log("Remove file event type: ", typeof event);
+  onRemove(event: any) {
+    console.log("Remove file event type: ", event);
     this.files.splice(this.files.indexOf(event), 1);
+    console.log("New list of files: ", this.files);
   }
-
+  // Original method keep
   // Clear/start new workflow
   reset() {
     this.files = [];
     this.hasErrors = [];
     this.syncSet = {};
-    this.results = "";
+    this.results = [];
+    this.resultLog = [];
     this.resultsSummary = "";
     this.processed = 0;
     this.recordsToProcess = 0;
     this.missingFields = [];
   }
-
+  // Original method keep
   // Method to compare profiles - usage status unknown
   compareProfiles(o1: Profile, o2: Profile): boolean {
     return o1 && o2 ? o1.name === o2.name : o1 === o2;
   }
 
+  // Original method keep
   // Scroll functionality
   ngAfterViewChecked() {
     this.scrollToBottom();
   }
 
+  // Final method candidate
   // Scroll functionality
   scrollToBottom(): void {
     if (!this.resultsPanel) {
@@ -204,248 +230,210 @@ export class MainComponent implements OnInit {
   //   } catch (err) {}
   // }
 
+  // Original method keep
   // Results log toggle
   showLogChanged(event: MatSlideToggleChange) {
     this.storeService.set("showLog", event.checked).subscribe();
   }
 
-  /* *** Methods group 3: Main processing method *** */
-  sync() {
-    console.log("Initiating sync procedure with fileset: ", this.files[0]);
+  // Final candidate method
+  syncUsers() {
+    console.log(
+      "Initializing user sync procedure with fileset: ",
+      this.files[0],
+    );
 
     // Before starting the load process, verify if the uploaded CSV matches the selected profile settings
-    const verify: boolean = this.validateCSV(this.files[0]);
-    if (!verify) {
-      return;
-    }
+    console.log("Starting with CSV validation");
+    this.parseCSV(this.files[0])
+      .pipe(
+        catchError((err) => {
+          console.log("Error while parsing CSV: ", err);
+          this.hasErrors.push(...err);
+          return EMPTY;
+        }),
 
-    // If structure verification succeeds, parse the full CSV. If errors are encountered, end the workflow and show errors
-    const parsedCSV = this.parseCSV(this.files[0]);
-    if (this.hasErrors.length > 0) {
-      return;
-    }
+        switchMap((users) =>
+          this.confirmImport(users).pipe(
+            take(1),
+            switchMap((confirm) => {
+              if (!confirm) {
+                return EMPTY;
+              }
+              return of(users);
+            }),
+          ),
+        ),
 
-    // Transform all users to a csv user object
-    console.log("Starting user mapping procedure");
-    let users: any[] = parsedCSV.data.map((row: { [key: string]: string }) =>
-        this.userService.buildCsvUser(row, this.selectedProfile),
-      )
-    console.log("Finished mapping csv users: ", users);
-
-    
-
-
-    // If the selected profile is of type 'Sync', load the full userset. If this fails, do not proceed.
-    console.log('If a sync profile is active, at this point the full userset is loaded')
-    if (this.selectedProfile.profileType === 'SYNC'){
-      console.log('Detected sync profile - starting full user load')
-      this.loading = true
-
-      this.userService.getAllUsers().subscribe(
-        (userSet) => {
-          console.log('Finished collecting full userset with user count: ', userSet.length);
-          this.syncSet = users.reduce<Record<string, any>>((allUsers, user) => {
-            allUsers[user.id]=user;
-            return allUsers;
-          }, {});
-          this.loading = false;
-          this.importUsers(users);
-        },
-        (err) => {
-          console.error('Could not load syncSet due to error: ', err.message);
-          this.hasErrors.push('Failed to load full user set for user sync - please retry');
-          this.loading = false;
-          return
-        },
-        () => {
-          this.loading = false;
-        }        
-      )
-    }
-    // Proceed directly with the import method
-    else {
-      this.importUsers(users);
-    }
-  }
-
-  // Method to confirm user import
-  confirmImport(users: any[]): Observable<boolean>{
-    console.log("Opening confirmation dialog");
-    return this.dialogs
-      .confirm({
-        text: [
-          "Main.ConfirmCreateUsers",
-          { count: users.length, type: this.selectedProfile.profileType },
-        ],
-      })
-    }
-
-  // Method to effect Alma import of users
-  importUsers(users: any[]){
-    
-    this.confirmImport(users).pipe(
-      // Confirm user import through popup
-      switchMap(
-        resp => {
-          if(!resp){
-            return EMPTY;
-          }
-
-          this.loading = true;
-
-          // If the profiletype is 'SYNC', collect full userset for user sync purposes
-          if(this.selectedProfile.profileType === 'SYNC'){
+        switchMap((users) => {
+          if (this.selectedProfile.profileType === "SYNC") {
+            this.loading = true;
+            console.log("Profile type is Sync - starting to collect all users");
             return this.userService.getAllUsers().pipe(
-              tap(userSet => {
-                console.log('Finished collecting full userset with user count: ', userSet.length);
-                this.syncSet = users.reduce<Record<string, any>>((allUsers, user) => {
-                    allUsers[user.id]=user;
+              tap((allUsers) => {
+                console.log("Succesfully collected all users: ", allUsers);
+                this.syncSet = users.reduce<Record<string, any>>(
+                  (allUsers, user) => {
+                    allUsers[user.id] = user;
                     return allUsers;
-                    }, {});
-                this.loading = false;
+                  },
+                  {},
+                );
               }),
-              catchError(err => {
-                console.error('Error while loading syncSet: ', err);
-                return throwError(() => err)
-              })
+              map(() => users),
+              catchError((err) => {
+                this.hasErrors.push(
+                  `Could not collect sync user set. Please retry later.`,
+                );
+                console.log("Error while collecting full userset: ", err);
+                return EMPTY;
+              }),
             );
           }
-          // Else skip this step = return observable of null to keep the flow going
-          return of(null);
+          console.log(
+            "Profile type is not sync: ",
+            this.selectedProfile.profileType,
+          );
+          return of(users);
         }),
-        // After the previous steps have completed successfully, start processing users
-        switchMap(() =>
-          this./*userService.*/processUserSet(users, this.syncSet).pipe(
-            catchError(err => {
-              console.error('Error while processing users');
-              return throwError(() => err);
-            })
-          )
+
+        switchMap((users) =>
+          this.processUsers(users).pipe(
+            tap((res) => this.results.push(res)),
+              catchError((err) => {
+                console.log("Unexpected stream failure: ", err);
+                return EMPTY;
+              }),
+              finalize(() => {
+                console.log('Finished processing complete user batch: ', this.processed);
+                this.calculateResultsSummary();
+              })
+            ),
         ),
-        // Global error handler
-        catchError(err => {
-          console.error('Could not start user processing due to error: ', err);
-          return EMPTY;
-        })
-        // Subscribe to result of user processing method
-      ).subscribe(
-        (results) => {
-          this.results = ((results).join('/n'));
-        },
-        (err) => {
-          console.error('Could not complete user processing due to error: ', err);
-        });
+      )
+      .subscribe();
+  }
+
+  // Final candidate method
+  private calculateResultsSummary(){
+    let successCount = 0;
+    let errorCount = 0;
+    this.results.forEach((res) => {
+      if(isRestErrorResponse(res)){
+        errorCount++;
+        this.resultLog.push(`${this.translate.instant("Main.Failed")}: ${res.message}`);
+      } else{
+        successCount++;
+        this.resultLog.push(`${this.translate.instant("Main.Processed")}: ${res.primary_id}`);
       }
- 
+    });
+    // Generate results summary
+    this.resultsSummary = this.translate.instant("Main.ResultsSummary", { successCount, errorCount });
+    this.running = false;                
+  }
 
-    processUserSet(users: any[], syncSet: {[key:string]:any}):Observable<string[]>{
+  // Final candidate method
+  processUsers(users: any[]){
+    // The user input comes in the form of a raw set of CSV rows. They have been validated, but not yet processed.
+    // Therefore start by turning them into user objects
+    console.log("Starting user processing with CSV user set: ", users);
+    const parsedUsers = users.map((user) => this.userService.buildCsvUser(user, this.selectedProfile));
+    console.log("Finished pre-processing users into sync users: ", parsedUsers);
 
-      // Setup results array to collect results of individual update actions
-      const updateResults: any[] = [];
-    // Verify if each user in the import has a primary ID
-    // If not, parallel processing is not possible,because Alma user creation without preset patron ID is not thread-safe
-      const parallel = users.every((user) => user.primary_id) ? MAX_PARALLEL_CALLS : 1;
-      console.log('Set maximal parallel calls to ', parallel);
+    console.log('Calculating concurrency limit.')
+    const parallel = parsedUsers.every((user) => user.primary_id) ? MAX_PARALLEL_CALLS  : 1;
+    console.log("Set maximal parallel calls to ", parallel);
 
-        this.recordsToProcess = users.length;
-        this.running = true;
-        console.log("Right before processing starts");
+    console.log('Set up monitoring tools');
+    this.recordsToProcess = parsedUsers.length;
+    this.running = true;
+    console.log("Right before processing starts");
 
-        // Loop over users array and turn each into an observable that calls the processing method
-        // The result is an array of observables (which are not yet doing anything)
-        from(
-          users.map((user) => this.userService.processCustomUser(user, this.selectedProfile.profileType)
-            .pipe(tap(() => this.processed++)),
-        )
-        // Run the user processing with concurrency control, with parallel controlling how many calls are performed at the same time
-        ).pipe(mergeMap((obs) => obs, parallel))
-          // Subscribe to collect results of individual calls as they arrive
-          .subscribe({
-            // Each time an observable finishes, a success or error result is pushed to the results Array
-            next: (result) => updateResults.push(result),
-            // When all observables are finished, the final results array is emitted
-            complete: () => {
-              setTimeout(() => {
-                let successCount = 0,
-                  errorCount = 0;
-                // Each result in the set is analyzed and added to the logs
-                updateResults.forEach((res) => {
-                  if (isRestErrorResponse(res)) {
-                    errorCount++;
-                    this.log(
-                      `${this.translate.instant("Main.Failed")}: ${res.message}`,
-                    );
-                  } else {
-                    successCount++;
-                    this.log(
-                      `${this.translate.instant("Main.Processed")}: ${res.primary_id}`,
-                    );
-                  }
-                });
-                // Generate results summary
-                this.resultsSummary = this.translate.instant(
-                  "Main.ResultsSummary",
-                  { successCount, errorCount },
-                );
-                this.running = false;
-              }, 500);
-            },
-          });
-      
-        return of(updateResults);
-    }
-    
+    // If userset is empty, return immediately
+      if(parsedUsers.length === 0){
+    return of([]);
+  }
 
+  return from(parsedUsers).pipe(
+    mergeMap(
+      user => 
+        this.userService.processCustomUser(user, this.selectedProfile.profileType, this.checkSyncUser(user)).pipe(
+          catchError( err => {
+            return of(err);}
+          ),
+          finalize(() => {this.processed++;})
+        ),
+        parallel
+    ))
+  }
+
+// Final candidate method
+private checkSyncUser(user: any): any|undefined {
+  if(this.selectedProfile.profileType === 'SYNC'){
+    return this.syncSet[user.primary_id] ?? undefined;
+  }
+  return undefined;
+}
+
+  /* *** Methods group 3: Main processing method *** */
+  
+  // Final candidate method
+  // Method to confirm user import
+  confirmImport(users: any[]): Observable<boolean> {
+    console.log("Opening confirmation dialog");
+    return this.dialogs.confirm({
+      text: [
+        "Main.ConfirmCreateUsers",
+        { count: users.length, type: this.selectedProfile.profileType },
+      ],
+    });
+  }
 
   /* *** Methods group 4: CSV parsing and prechecks *** */
-  // Initial CSV validation: verifies if all fields defined in the profile are present in the CSV - based on preview parse to limit processing time
-  validateCSV(file: File) {
-    console.log("Entering CSV preview method");
-    let preview: ParseResult = this.papa.parse(file, {
-      header: true,
-      preview: 3,
-      skipEmptyLines: "greedy",
-    });
+  // Final candidate method
+  parseCSV(file: File): Observable<any[]> {
+    return new Observable((observer) => {
+      this.papa.parse(file, {
+        header: true,
+        skipEmptyLines: "greedy",
+        complete: (result) => {
+          const parseErrors: string[] = [];
 
-    let missingFields: string[] = this.CheckCSV(preview, this.selectedProfile);
-    console.log("Finished CSV match verification with result: ", missingFields);
-    if (missingFields.length > 0) {
-      console.error(
-        "CSV file has missing fields: ",
-        this.missingFields.join(", "),
-      );
-      this.hasErrors.push(
-        `CSV file has missing fields: ${this.missingFields.join(", ")}`,
-      );
-      return false;
-    }
-    return true;
+          const missingFields = this.CheckCSV(result, this.selectedProfile);
+          if (missingFields.length > 0) {
+            parseErrors.push(
+              `CSV does not match expected structure - the following fields are missing: ${missingFields.join(", ")}`,
+            );
+          }
+
+          if (result.errors.length > 0) {
+            parseErrors.push(
+              ...result.errors.map(
+                (e) =>
+                  `CSV parsing error on line ${e.row + 1}: ${e.code} - ${e.message}`,
+              ),
+            );
+          }
+
+          if (parseErrors.length > 0) {
+            observer.error(parseErrors);
+          }
+
+          observer.next(result.data);
+          observer.complete();
+        },
+        error: (err) =>
+          observer.error([
+            `CSV file could not be parsed. Please check your file`,
+          ]),
+      });
+    });
   }
 
-  // Parse CSV: parses the full CSV file - returns raw CSV parse output, no additional processing applied
-  parseCSV(file: File): ParseResult {
-    console.log("Entering CSV full parse method");
-    let parsedCSV: ParseResult = this.papa.parse(file, {
-      header: true,
-      //complete: this.parsed,
-      skipEmptyLines: "greedy",
-    });
-
-    if (parsedCSV.errors.length > 0) {
-      console.warn("Errors:", parsedCSV.errors);
-      this.hasErrors.push(
-        ...parsedCSV.errors.map(
-          (e) => `${e.code} on row ${e.row + 1}: ${e.message}`,
-        ),
-      );
-    }
-
-    console.log("Finished CSV full parse method");
-    return parsedCSV;
-  }
-
+  // Final candidate method
   // Compares CSV header from parseResult with the field list of a specific profile
   private CheckCSV(result: ParseResult, selectedProfile: Profile): string[] {
+    console.log("Entering CSV field check method for result: ", result);
     let missing: string[] = [];
     selectedProfile.fields.forEach((f) => {
       if (f.header !== "" && !result.meta.fields.includes(f.header)) {
@@ -455,125 +443,124 @@ export class MainComponent implements OnInit {
     return missing;
   }
 
+  // Original method backup
   // Add line to results log
-  private log = (str: string) => (this.results += `${str}\n`);
+  //private log = (str: string) => (this.resultLog += `${str}\n`);
 
   // Main method to start import action
 
-  private parsed = async (result: ParseResult) => {
-    this.missingFields = this.CheckCSV(result, this.selectedProfile);
-    if (this.missingFields.length > 0) {
-      console.error(
-        "CSV file has missing fields: ",
-        this.missingFields.join(", "),
-      );
-    }
+  // Original method deprecated (backup)
+//   private parsed = async (result: ParseResult) => {
+//     this.missingFields = this.CheckCSV(result, this.selectedProfile);
+//     if (this.missingFields.length > 0) {
+//       console.error(
+//         "CSV file has missing fields: ",
+//         this.missingFields.join(", "),
+//       );
+//     }
 
-    if (result.errors.length > 0) {
-      console.warn("Errors:", result.errors);
-    }
+//     if (result.errors.length > 0) {
+//       console.warn("Errors:", result.errors);
+//     }
 
-    console.log("Starting user mapping procedure");
-    let users: any[] = result.data.map((row) =>
-        this.userService.buildCsvUser(row, this.selectedProfile),
-      ),
-      results: string[] = [];
-    console.log("Finished parsing csv users: ", users);
+//     console.log("Starting user mapping procedure");
+//     let users: any[] = result.data.map((row: any) =>
+//         this.userService.buildCsvUser(row, this.selectedProfile),
+//       ),
+//       results: string[] = [];
+//     console.log("Finished parsing csv users: ", users);
 
-    
+//     console.log("Setting parallel call number");
+//     /* Generation of primary ID is not thread safe; only parallelize if primary ID is supplied */
+//     const parallel = users.every((user) => user.primary_id)
+//       ? MAX_PARALLEL_CALLS
+//       : 1;
+//     console.log("Opening confirmation dialog");
+//     this.dialogs
+//       .confirm({
+//         text: [
+//           "Main.ConfirmCreateUsers",
+//           { count: users.length, type: this.selectedProfile.profileType },
+//         ],
+//       })
+//       .subscribe((result) => {
+//         if (!result) {
+//           this.results = "";
+//           return;
+//         }
+//         this.recordsToProcess = users.length;
+//         this.running = true;
+//         console.log("Right before processing starts");
 
-    console.log("Setting parallel call number");
-    /* Generation of primary ID is not thread safe; only parallelize if primary ID is supplied */
-    const parallel = users.every((user) => user.primary_id)
-      ? MAX_PARALLEL_CALLS
-      : 1;
-    console.log("Opening confirmation dialog");
-    this.dialogs
-      .confirm({
-        text: [
-          "Main.ConfirmCreateUsers",
-          { count: users.length, type: this.selectedProfile.profileType },
-        ],
-      })
-      .subscribe((result) => {
-        if (!result) {
-          this.results = "";
-          return;
-        }
-        this.recordsToProcess = users.length;
-        this.running = true;
-        console.log("Right before processing starts");
+//         // Loop over users array and turn each into an observable that calls the processing method
+//         // The result is an array of observables (which are not yet doing anything)
+//         from(
+//           users.map((user) =>
+//             this.userService
+//               .processCustomUser(user, this.selectedProfile.profileType)
+//               .pipe(tap(() => this.processed++)),
+//           ),
+//         )
+//           // Run the user processing with concurrency control, with parallel controlling how many calls are performed at the same time
+//           .pipe(mergeMap((obs) => obs, parallel))
+//           // Subscribe to collect results of individual calls as they arrive
+//           .subscribe({
+//             // Each time an observable finishes, a success or error result is pushed to the results Array
+//             next: (result) => results.push(result),
+//             // When all observables are finished, the final results array is emitted
+//             complete: () => {
+//               setTimeout(() => {
+//                 let successCount = 0,
+//                   errorCount = 0;
+//                 // Each result in the set is analyzed and added to the logs
+//                 results.forEach((res) => {
+//                   if (isRestErrorResponse(res)) {
+//                     errorCount++;
+//                     this.log(
+//                       `${this.translate.instant("Main.Failed")}: ${res.message}`,
+//                     );
+//                   } else {
+//                     successCount++;
+//                     this.log(
+//                       `${this.translate.instant("Main.Processed")}: ${res /*.primary_id*/}`,
+//                     );
+//                   }
+//                 });
+//                 // Generate results summary
+//                 this.resultsSummary = this.translate.instant(
+//                   "Main.ResultsSummary",
+//                   { successCount, errorCount },
+//                 );
+//                 this.running = false;
+//               }, 500);
+//             },
+//           });
+//       });
+//   };
+// }
 
-        // Loop over users array and turn each into an observable that calls the processing method
-        // The result is an array of observables (which are not yet doing anything)
-        from(
-          users.map((user) =>
-            this.userService
-              .processCustomUser(user, this.selectedProfile.profileType)
-              .pipe(tap(() => this.processed++)),
-          ),
-        )
-          // Run the user processing with concurrency control, with parallel controlling how many calls are performed at the same time
-          .pipe(mergeMap((obs) => obs, parallel))
-          // Subscribe to collect results of individual calls as they arrive
-          .subscribe({
-            // Each time an observable finishes, a success or error result is pushed to the results Array
-            next: (result) => results.push(result),
-            // When all observables are finished, the final results array is emitted
-            complete: () => {
-              setTimeout(() => {
-                let successCount = 0,
-                  errorCount = 0;
-                // Each result in the set is analyzed and added to the logs
-                results.forEach((res) => {
-                  if (isRestErrorResponse(res)) {
-                    errorCount++;
-                    this.log(
-                      `${this.translate.instant("Main.Failed")}: ${res.message}`,
-                    );
-                  } else {
-                    successCount++;
-                    this.log(
-                      `${this.translate.instant("Main.Processed")}: ${res.primary_id}`,
-                    );
-                  }
-                });
-                // Generate results summary
-                this.resultsSummary = this.translate.instant(
-                  "Main.ResultsSummary",
-                  { successCount, errorCount },
-                );
-                this.running = false;
-              }, 500);
-            },
-          });
-      });
-  };
+// @Injectable({
+//   providedIn: "root",
+// })
+// export class MainGuard implements CanActivate {
+//   constructor(
+//     private settingsService: CloudAppConfigService,
+//     private router: Router,
+//   ) {}
+//   canActivate(
+//     next: ActivatedRouteSnapshot,
+//     state: RouterStateSnapshot,
+//   ): Observable<boolean> {
+//     return this.settingsService.get().pipe(
+//       map((settings) => {
+//         if (!settings.profiles) {
+//           this.router.navigate(["settings"]);
+//           return false;
+//         }
+//         return true;
+//       }),
+//     );
+//   }
 }
 
-@Injectable({
-  providedIn: "root",
-})
-export class MainGuard implements CanActivate {
-  constructor(
-    private settingsService: CloudAppConfigService,
-    private router: Router,
-  ) {}
-  canActivate(
-    next: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot,
-  ): Observable<boolean> {
-    return this.settingsService.get().pipe(
-      map((settings) => {
-        if (!settings.profiles) {
-          this.router.navigate(["settings"]);
-          return false;
-        }
-        return true;
-      }),
-    );
-  }
-}
 
-const isRestErrorResponse = (object: any): object is RestErrorResponse =>
-  "error" in object;

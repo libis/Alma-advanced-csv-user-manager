@@ -20,7 +20,7 @@
   </mat-form-field>
 
   <div *ngIf="hasErrors.length > 0" class="errorZone">
-    <h3>One or more errors occurred during CSV parsing: <br /></h3>
+    <h3>One or more errors occurred during processing: <br /></h3>
     <p *ngFor="let error of hasErrors">{{error}}</p>
   </div>
 
@@ -31,7 +31,7 @@
     </ngx-dropzone-preview>
   </ngx-dropzone>
 
-  <div *ngIf="selectedProfile">
+  <div *ngIf="selectedProfile; else initialView">
     <h2 translate>Profile.ProfileSettings</h2>
     <p><strong><span translate="Profile.ProfileType"></span>: </strong><span
         translate="Profile.{{selectedProfile.profileType}}"></span></p>
@@ -60,6 +60,11 @@
       <mat-row *matRowDef="let row; columns: showColumns"></mat-row>
     </mat-table>
   </div>
+
+  <ng-template #initialView>
+    <h3>Welcome to the Alma CSV User Manager</h3>
+    <p>There are no templates defined yet. If you are the administrator of this environment, you can add profiles through the configuration menu. If not, contact your administrator to set up the necessary profiles for your use case(s).</p>
+  </ng-template>
 
 </div>
 
