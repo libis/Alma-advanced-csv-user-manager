@@ -67,7 +67,7 @@ export type CsvAddUser = Omit<CsvUser, 'primary_id'|'first_name'|'last_name'|'us
 export type CsvUpdateUser = Omit<CsvUser, 'primary_id'> & RequireFields<CsvUser, 'primary_id'>
 
 export interface TypedValue {
-    type: string;
+    type: ValueCode;
     value: string;
 }
 

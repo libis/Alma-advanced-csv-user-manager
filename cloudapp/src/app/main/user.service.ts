@@ -23,10 +23,12 @@ export interface UpdateResult {
   error?: RestErrorResponse;
 }
 
-const STRING_FIELDS = ['primary_id', 'first_name', 'middle_name', 'last_name', 'password', 'force_password_change', 'pref_first_name', 'pref_middle_name', 'pref_last_name', 'external_id', 'job_description', 'pin_number'];
-const VALUE_FIELDS = ['account_type', 'user_group', 'campus_code', 'preferred_language', 'record_type', 'job_category', 'user_title', 'status'];
-const STRING_LISTS = ['proxy_for_user'];
+const STRING_FIELDS = ['primary_id', 'first_name', 'middle_name', 'last_name', 'password', 'force_password_change', 'pref_first_name', 'pref_middle_name', 'pref_last_name', 'external_id', 'job_description', 'pin_number', 'line1', 'line2','line3', 'line4', 'line5', 'city','state_province','postal_code','email_address','phone_number', 'value', 'note', 'note_text', 'user_viewable', 'popup_note'];
+const VALUE_FIELDS = ['account_type', 'user_group', 'campus_code', 'preferred_language', 'record_type', 'job_category', 'user_title', 'status', 'country', 'id_type', 'note_type', 'category_type', 'statistic_category'];
+const VALUE_LISTS = ['address_type', 'email_type', 'phone_type']
+const OBJECT_LISTS = ['address', 'email', 'phone', 'user_identifier', 'user_note', 'proxy_for_user']
 const DATE_FIELDS = ['birth_date', 'expiry_date', 'purge_date'];
+const CODE_FIELDS = ['rs_library']
 
 @Injectable({
   providedIn: "root",
@@ -160,6 +162,7 @@ export class UserService {
       );
   }
 
+// Final candidate method
 public processSingleUser(user: syncUser, profileType: string, currUser: any|undefined = undefined){
 switch (profileType) {
       case "ADD":
@@ -209,7 +212,7 @@ switch (profileType) {
       }
 }
 
-
+// Original method
 public processCustomUser(user: syncUser, profileType: string, currUser: any|undefined = undefined) {
     switch (profileType) {
       case "ADD":
@@ -264,6 +267,8 @@ public processCustomUser(user: syncUser, profileType: string, currUser: any|unde
                 catchError((e) => of(this.handleError(e, user)))  
               );
             } else {
+              const doUpdate = this.triggerUpdate(currUser, user);
+              console.log('Has updates: ', doUpdate);
               this.calcUpdatedUser(currUser, user);
               delete currUser["user_role"];
               return this.restService.call({
@@ -289,36 +294,85 @@ public processCustomUser(user: syncUser, profileType: string, currUser: any|unde
   }
 }
 
-// Verify if the user has meaningful updates. The method will return true as soon as a single updated field is found
- private triggerUpdate(user: any, currUser: any): boolean {
-
-  if(user.REPLACE){
-  Object.keys(user.REPLACE).forEach((key: string) => {
-
-    switch(key){
-      case STRING_FIELDS.includes(key):
-        if(user.REPLACE[key] !== currUser[key]){
-          return true;
-      }
-      break;
-
-      case VALUE_FIELDS.includes(key):
-        if(user.REPLACE[key].value !== currUser[key].value){
-          return true;
+// Final candidate method - used to detect changes within a field
+private matchUserField(oldField:any, newField:any, fieldKey: string) : boolean {
+        if(Array.isArray(newField)){
+          return (newField.every( item =>
+            oldField.some((elem:any) =>
+              this.matchUserField(elem, item, fieldKey)
+            )
+          )
+          &&
+          oldField.every( (item:any) =>
+            newField.some(elem =>
+              this.matchUserField(elem, item, fieldKey)
+            )
+          )
+          );
         }
-    }
-  }
-  );
 
-  }
-  }
+        else if(newField && oldField && (typeof newField === 'object')){
+          return Object.keys(newField).every( key => 
+          (key in oldField) && this.matchUserField(oldField[key], newField[key], key)
+          )
+        }
+
+        else if(['birth_date', 'expiry_date', 'purge_date'].includes(fieldKey)){
+          return oldField === `${newField}Z`;
+        }
+
+        else {
+          return oldField === newField;
+        }
+        
+        
+                // // Field is a string ==> return string comparison
+        // if(typeof newField === 'string'){
+        //   return oldField === newField;
+        // }
+    
+        // // Field is a string
+        // if(STRING_FIELDS.includes(fieldKey)){
+        //     return oldField === newField;
+        // }
+        // else if (VALUE_FIELDS.includes(fieldKey)){
+        //     return oldField['value'] === newField['value'];
+        //        }
+        // else if (CODE_FIELDS.includes(fieldKey)){
+        //     return newField.every((fcode) => oldField.map((x) => x['code']['value']).includes(fcode['code']['value']));
+        // }
+        // else if (VALUE_LISTS.includes(fieldKey)){
+        //     return newField.every((ftype) => oldField.map((x) => x['value']).includes(ftype['value']));
+        // }
+        // else {
+        //     return false;
+        // }    
 }
 
-  return false
+// Final candidate method
+// Verify if the user has meaningful updates. The method will return true as soon as a single updated field is found
+ private triggerUpdate(oldUser: any, newUser: any): boolean {
+    // If 'enrich' is enabled, assume update (< enrich is intended specifically to add data)
+    if('ENRICH' in newUser){
+      return true;
+    }
+
+    // If 'replace' is enabled for any field, compare existing and updated user object
+    if('REPLACE' in newUser){
+            
+      for (const key in newUser['REPLACE'])
+        {
+          if(!(key in oldUser)){
+            return true;
+          }
+        
+          if(!this.matchUserField(oldUser[key], newUser['REPLACE'][key], key)){
+            return true;
+          }
+      }
+    }
+    return false;
  }
-
-
-
 
   // *** Method Group 3: User parsing methods
 

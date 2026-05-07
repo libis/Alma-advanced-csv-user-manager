@@ -36,6 +36,7 @@ import { UserService } from "./user.service";
 import { MatSelectChange } from "@angular/material/select";
 import { MatSlideToggleChange } from "@angular/material/slide-toggle";
 import { ARRAY_INDICATOR } from "../models/settings-utils";
+import { NgxDropzoneChangeEvent } from "ngx-dropzone";
 
 const MAX_PARALLEL_CALLS = 5;
 
@@ -174,15 +175,15 @@ export class MainComponent implements OnInit {
 
   // Original method keep
   // Add files to processing list
-  onSelect(event: any) {
-    console.log("Add file event type: ", event);
+  onSelect(event: NgxDropzoneChangeEvent) {
+    console.log("Add file event type: ", typeof event);
     this.files.push(...event.addedFiles);
     console.log("New list of files: ", this.files);
   }
 
   // Original method keep
   // Remove files from processing list
-  onRemove(event: any) {
+  onRemove(event: File) {
     console.log("Remove file event type: ", event);
     this.files.splice(this.files.indexOf(event), 1);
     console.log("New list of files: ", this.files);
@@ -324,7 +325,7 @@ export class MainComponent implements OnInit {
         this.resultLog.push(`${this.translate.instant("Main.Failed")}: ${res.message}`);
       } else{
         successCount++;
-        this.resultLog.push(`${this.translate.instant("Main.Processed")}: ${res.primary_id}`);
+        this.resultLog.push(`${this.translate.instant("Main.Processed")}: ${res/*.primary_id*/}`);
       }
     });
     // Generate results summary
@@ -537,30 +538,30 @@ private checkSyncUser(user: any): any|undefined {
 //           });
 //       });
 //   };
-// }
+}
 
-// @Injectable({
-//   providedIn: "root",
-// })
-// export class MainGuard implements CanActivate {
-//   constructor(
-//     private settingsService: CloudAppConfigService,
-//     private router: Router,
-//   ) {}
-//   canActivate(
-//     next: ActivatedRouteSnapshot,
-//     state: RouterStateSnapshot,
-//   ): Observable<boolean> {
-//     return this.settingsService.get().pipe(
-//       map((settings) => {
-//         if (!settings.profiles) {
-//           this.router.navigate(["settings"]);
-//           return false;
-//         }
-//         return true;
-//       }),
-//     );
-//   }
+@Injectable({
+  providedIn: "root",
+})
+export class MainGuard implements CanActivate {
+  constructor(
+    private settingsService: CloudAppConfigService,
+    private router: Router,
+  ) {}
+  canActivate(
+    next: ActivatedRouteSnapshot,
+    state: RouterStateSnapshot,
+  ): Observable<boolean> {
+    return this.settingsService.get().pipe(
+      map((settings) => {
+        if (!settings.profiles) {
+          this.router.navigate(["settings"]);
+          return false;
+        }
+        return true;
+      }),
+    );
+  }
 }
 
 

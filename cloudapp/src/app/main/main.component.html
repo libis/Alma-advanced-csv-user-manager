@@ -4,11 +4,11 @@
 
 <div class="cloudapp-actions">
   <button mat-flat-button type="button" color="secondary" (click)="reset()">{{ 'Reset' | translate }}</button>
-  <button mat-flat-button type="button" color="primary" (click)="sync()"
-    [disabled]="files.length==0 || !!results || !selectedProfile">{{ 'Main.LoadUsers' | translate }}</button>
+  <button mat-flat-button type="button" color="primary" (click)="syncUsers()"
+    [disabled]="files.length==0 || results.length > 0 || !selectedProfile">{{ 'Main.LoadUsers' | translate }}</button>
 </div>
 
-<div *ngIf="!results">
+<div *ngIf="results.length === 0">
   <mat-form-field>
     <mat-label translate>Main.SelectProfile</mat-label>
     <mat-select placeholder="Profile" [(value)]="selectedProfile" (selectionChange)="onSelectProfile($event)">
@@ -68,7 +68,7 @@
 
 </div>
 
-<div *ngIf="results">
+<div *ngIf="results.length > 0">
   <h2 translation="Results">Results</h2>
   <p>{{resultsSummary}}</p>
   <mat-slide-toggle labelPosition="before" (change)="showLogChanged($event)" [(ngModel)]="showLog">{{'Main.ShowLog' |
