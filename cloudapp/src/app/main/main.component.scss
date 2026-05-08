@@ -40,11 +40,14 @@ pre {
 }
 
 .errorZone {
-  background-color: pink;
+  background-color: mistyrose;
   color: darkred;
-  border-style: solid;
-  border-width: 3px;
   border-radius: 5px;
-  padding: 0.5rem;
-  margin: 1rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.errorZone h3 {
+  color: inherit;
 }

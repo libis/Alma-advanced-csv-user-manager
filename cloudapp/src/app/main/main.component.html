@@ -1,14 +1,19 @@
 <div class="loading-shade" *ngIf="running">
   <mat-progress-spinner mode="determinate" [value]="percentComplete" diameter="50"></mat-progress-spinner>
 </div>
+ <div class="loading-shade" *ngIf="loading">
+      <mat-spinner diameter="50"></mat-spinner>
+      <br>
+    </div>
 
+<div *ngIf="results.length === 0">
 <div class="cloudapp-actions">
   <button mat-flat-button type="button" color="secondary" (click)="reset()">{{ 'Reset' | translate }}</button>
   <button mat-flat-button type="button" color="primary" (click)="syncUsers()"
     [disabled]="files.length==0 || results.length > 0 || !selectedProfile">{{ 'Main.LoadUsers' | translate }}</button>
 </div>
 
-<div *ngIf="results.length === 0">
+<div *ngIf="config.profiles?.length > 0; else initialView">
   <mat-form-field>
     <mat-label translate>Main.SelectProfile</mat-label>
     <mat-select placeholder="Profile" [(value)]="selectedProfile" (selectionChange)="onSelectProfile($event)">
@@ -31,7 +36,7 @@
     </ngx-dropzone-preview>
   </ngx-dropzone>
 
-  <div *ngIf="selectedProfile; else initialView">
+  <div *ngIf="selectedProfile">
     <h2 translate>Profile.ProfileSettings</h2>
     <p><strong><span translate="Profile.ProfileType"></span>: </strong><span
         translate="Profile.{{selectedProfile.profileType}}"></span></p>
@@ -60,13 +65,17 @@
       <mat-row *matRowDef="let row; columns: showColumns"></mat-row>
     </mat-table>
   </div>
-
-  <ng-template #initialView>
-    <h3>Welcome to the Alma CSV User Manager</h3>
-    <p>There are no templates defined yet. If you are the administrator of this environment, you can add profiles through the configuration menu. If not, contact your administrator to set up the necessary profiles for your use case(s).</p>
-  </ng-template>
+  </div>
 
 </div>
+  <ng-template #initialView>
+    <div *ngIf="!loading">
+      <h3>Welcome to the Alma CSV User Manager</h3>
+      <p>There are no templates defined yet. If you are the administrator of this environment, you can add profiles
+        through the configuration menu. If not, contact your administrator to set up the necessary profiles for your use
+        case(s).</p>
+    </div>
+  </ng-template>
 
 <div *ngIf="results.length > 0">
   <h2 translation="Results">Results</h2>
@@ -74,6 +83,9 @@
   <mat-slide-toggle labelPosition="before" (change)="showLogChanged($event)" [(ngModel)]="showLog">{{'Main.ShowLog' |
     translate}}</mat-slide-toggle>
 
-  <pre #resultsPanel *ngIf="showLog">{{results}}</pre>
+  <pre #resultsPanel *ngIf="showLog">
+    <p *ngFor="let result of resultLog">{{result}}</p>
+  </pre>
+
   <button mat-stroked-button type="button" (click)="reset()" *ngIf="!running">OK</button>
 </div>

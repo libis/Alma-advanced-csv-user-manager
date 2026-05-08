@@ -14,6 +14,7 @@
   },
   "OK": "OK",
   "Profile": {
+    "ProfileSettings": "Profile settings",
     "ADD": "Add",
     "Default": "Default",
     "DELETE": "Delete",

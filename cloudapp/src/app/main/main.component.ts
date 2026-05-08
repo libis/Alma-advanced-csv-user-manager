@@ -70,7 +70,7 @@ export class MainComponent implements OnInit {
   @ViewChild("resultsPanel", { static: false })
   private resultsPanel?: ElementRef<HTMLElement>;
   syncSet: { [key: string]: any } = {};
-  results: string[] = [];
+  results: any[] = [];
   resultLog: string[] = [];
   resultsSummary: string|undefined = '';
   processed = 0;
@@ -86,7 +86,7 @@ export class MainComponent implements OnInit {
     Update: ["header", "default", "name", "swap"],
   };
   get showColumns() {
-    return this.selectedProfile.profileType === "UPDATE"
+    return ['UPDATE', 'SYNC'].includes(this.selectedProfile.profileType)
       ? this.displayedColumns["Update"]
       : this.displayedColumns["Base"];
   }
@@ -115,13 +115,10 @@ export class MainComponent implements OnInit {
       (user) => {
         this.user = user;
         this.translate.use(this.user.preferred_language.value);
-        console.log(
-          "Logged in user language: ",
-          this.user.preferred_language.value,
-        );
+        //console.log("Logged in user language: ", this.user.preferred_language.value  );
       },
       (err) => {
-        console.log("Could not retrieve user data: " + err.message);
+        console.error("Could not retrieve user data: " + err.message);
         this.translate.use("en");
       },
     );
@@ -130,6 +127,7 @@ export class MainComponent implements OnInit {
     this.configService.get().subscribe(
       (config) => {
         this.config = config as Settings;
+        //console.log('Successfully loaded configuration: ', this.config);
         if (this.config.profiles && this.config.profiles.length > 0) {
           this.selectedProfile = this.config.profiles[0];
 
@@ -144,10 +142,7 @@ export class MainComponent implements OnInit {
               this.loading = false;
             },
             (err) => {
-              console.error(
-                "An error occurred while loading configuration: ",
-                err,
-              );
+              console.error("An error occurred while loading configuration: ", err);
               this.loading = false;
             },
             () => {
@@ -155,9 +150,13 @@ export class MainComponent implements OnInit {
             },
           );
         }
+        else{
+        this.loading = false;
+        }
       },
       (err) => {
         console.error("An error occurred while loading configuration: ", err);
+        this.hasErrors.push('Could not load app configuration. Try closing and reopening the app. If the problem persists, contact your library helpdesk.');
         this.loading = false;
       },
     );
@@ -177,7 +176,8 @@ export class MainComponent implements OnInit {
   // Add files to processing list
   onSelect(event: NgxDropzoneChangeEvent) {
     console.log("Add file event type: ", typeof event);
-    this.files.push(...event.addedFiles);
+    this.files = event.addedFiles;
+    this.hasErrors = [];
     console.log("New list of files: ", this.files);
   }
 
@@ -186,6 +186,7 @@ export class MainComponent implements OnInit {
   onRemove(event: File) {
     console.log("Remove file event type: ", event);
     this.files.splice(this.files.indexOf(event), 1);
+    this.hasErrors = [];
     console.log("New list of files: ", this.files);
   }
   // Original method keep
@@ -253,14 +254,16 @@ export class MainComponent implements OnInit {
           this.hasErrors.push(...err);
           return EMPTY;
         }),
-
+        
         switchMap((users) =>
           this.confirmImport(users).pipe(
             take(1),
             switchMap((confirm) => {
               if (!confirm) {
+                console.log("User cancelled import after confirmation dialog");
                 return EMPTY;
               }
+              console.log("User confirmed import after confirmation dialog - starting import with user set: ", users);
               return of(users);
             }),
           ),
@@ -273,13 +276,16 @@ export class MainComponent implements OnInit {
             return this.userService.getAllUsers().pipe(
               tap((allUsers) => {
                 console.log("Succesfully collected all users: ", allUsers);
-                this.syncSet = users.reduce<Record<string, any>>(
+                console.log('First user in set: ', allUsers[0]);
+                this.syncSet = allUsers.reduce<Record<string, any>>(
                   (allUsers, user) => {
-                    allUsers[user.id] = user;
+                    allUsers[user.primary_id] = user;
                     return allUsers;
                   },
                   {},
                 );
+                console.log("Finished building sync user set: ", this.syncSet);
+                this.loading = false;
               }),
               map(() => users),
               catchError((err) => {
@@ -287,6 +293,7 @@ export class MainComponent implements OnInit {
                   `Could not collect sync user set. Please retry later.`,
                 );
                 console.log("Error while collecting full userset: ", err);
+                this.loading = false;
                 return EMPTY;
               }),
             );
@@ -295,6 +302,7 @@ export class MainComponent implements OnInit {
             "Profile type is not sync: ",
             this.selectedProfile.profileType,
           );
+          console.log("Current set of users to process: ", users);
           return of(users);
         }),
 
@@ -303,11 +311,12 @@ export class MainComponent implements OnInit {
             tap((res) => this.results.push(res)),
               catchError((err) => {
                 console.log("Unexpected stream failure: ", err);
+                this.hasErrors.push(`Unexpected error during user processing: ${err.message}`);
                 return EMPTY;
               }),
               finalize(() => {
                 console.log('Finished processing complete user batch: ', this.processed);
-                this.calculateResultsSummary();
+                this.calculateResultsSummary_new();
               })
             ),
         ),
@@ -316,7 +325,28 @@ export class MainComponent implements OnInit {
   }
 
   // Final candidate method
+  private calculateResultsSummary_new() {
+    console.log('Current results array: ', this.results);
+    let successCount = 0;
+    let errorCount = 0;
+    this.results.forEach((res) => {
+      if(res.success){
+        successCount++;
+        this.resultLog.push(`${this.translate.instant("Main.Processed")}: ${res.action} (${res.data.primary_id})`);        
+      } else {
+        errorCount++;
+        this.resultLog.push(`${this.translate.instant("Main.Failed")}: ${res.error.message}`);
+      }
+    });
+    // Generate results summary
+    this.resultsSummary = this.translate.instant("Main.ResultsSummary", { successCount, errorCount });
+    console.log('Logging results: ', this.resultLog);
+    this.running = false;
+  }
+
+  // Old method backup
   private calculateResultsSummary(){
+    console.log("Calculating results summary for result set: ", this.results);
     let successCount = 0;
     let errorCount = 0;
     this.results.forEach((res) => {
@@ -348,17 +378,19 @@ export class MainComponent implements OnInit {
     console.log('Set up monitoring tools');
     this.recordsToProcess = parsedUsers.length;
     this.running = true;
-    console.log("Right before processing starts");
+    console.log("Right before processing starts: ",this.recordsToProcess, this.running);
 
     // If userset is empty, return immediately
       if(parsedUsers.length === 0){
-    return of([]);
+        this.hasErrors.push('Userset is empty.');
+        this.running = false;
+    return EMPTY;
   }
 
   return from(parsedUsers).pipe(
     mergeMap(
       user => 
-        this.userService.processCustomUser(user, this.selectedProfile.profileType, this.checkSyncUser(user)).pipe(
+        this.userService.processSingleUser(user, this.selectedProfile.profileType, this.checkSyncUser(user)).pipe(
           catchError( err => {
             return of(err);}
           ),
@@ -369,11 +401,11 @@ export class MainComponent implements OnInit {
   }
 
 // Final candidate method
-private checkSyncUser(user: any): any|undefined {
+private checkSyncUser(user: any): any|null {
   if(this.selectedProfile.profileType === 'SYNC'){
-    return this.syncSet[user.primary_id] ?? undefined;
+    return this.syncSet[user.primary_id] ?? null;
   }
-  return undefined;
+  return null;
 }
 
   /* *** Methods group 3: Main processing method *** */
@@ -443,101 +475,6 @@ private checkSyncUser(user: any): any|undefined {
     });
     return missing;
   }
-
-  // Original method backup
-  // Add line to results log
-  //private log = (str: string) => (this.resultLog += `${str}\n`);
-
-  // Main method to start import action
-
-  // Original method deprecated (backup)
-//   private parsed = async (result: ParseResult) => {
-//     this.missingFields = this.CheckCSV(result, this.selectedProfile);
-//     if (this.missingFields.length > 0) {
-//       console.error(
-//         "CSV file has missing fields: ",
-//         this.missingFields.join(", "),
-//       );
-//     }
-
-//     if (result.errors.length > 0) {
-//       console.warn("Errors:", result.errors);
-//     }
-
-//     console.log("Starting user mapping procedure");
-//     let users: any[] = result.data.map((row: any) =>
-//         this.userService.buildCsvUser(row, this.selectedProfile),
-//       ),
-//       results: string[] = [];
-//     console.log("Finished parsing csv users: ", users);
-
-//     console.log("Setting parallel call number");
-//     /* Generation of primary ID is not thread safe; only parallelize if primary ID is supplied */
-//     const parallel = users.every((user) => user.primary_id)
-//       ? MAX_PARALLEL_CALLS
-//       : 1;
-//     console.log("Opening confirmation dialog");
-//     this.dialogs
-//       .confirm({
-//         text: [
-//           "Main.ConfirmCreateUsers",
-//           { count: users.length, type: this.selectedProfile.profileType },
-//         ],
-//       })
-//       .subscribe((result) => {
-//         if (!result) {
-//           this.results = "";
-//           return;
-//         }
-//         this.recordsToProcess = users.length;
-//         this.running = true;
-//         console.log("Right before processing starts");
-
-//         // Loop over users array and turn each into an observable that calls the processing method
-//         // The result is an array of observables (which are not yet doing anything)
-//         from(
-//           users.map((user) =>
-//             this.userService
-//               .processCustomUser(user, this.selectedProfile.profileType)
-//               .pipe(tap(() => this.processed++)),
-//           ),
-//         )
-//           // Run the user processing with concurrency control, with parallel controlling how many calls are performed at the same time
-//           .pipe(mergeMap((obs) => obs, parallel))
-//           // Subscribe to collect results of individual calls as they arrive
-//           .subscribe({
-//             // Each time an observable finishes, a success or error result is pushed to the results Array
-//             next: (result) => results.push(result),
-//             // When all observables are finished, the final results array is emitted
-//             complete: () => {
-//               setTimeout(() => {
-//                 let successCount = 0,
-//                   errorCount = 0;
-//                 // Each result in the set is analyzed and added to the logs
-//                 results.forEach((res) => {
-//                   if (isRestErrorResponse(res)) {
-//                     errorCount++;
-//                     this.log(
-//                       `${this.translate.instant("Main.Failed")}: ${res.message}`,
-//                     );
-//                   } else {
-//                     successCount++;
-//                     this.log(
-//                       `${this.translate.instant("Main.Processed")}: ${res /*.primary_id*/}`,
-//                     );
-//                   }
-//                 });
-//                 // Generate results summary
-//                 this.resultsSummary = this.translate.instant(
-//                   "Main.ResultsSummary",
-//                   { successCount, errorCount },
-//                 );
-//                 this.running = false;
-//               }, 500);
-//             },
-//           });
-//       });
-//   };
 }
 
 @Injectable({
