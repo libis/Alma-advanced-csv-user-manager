@@ -119,12 +119,12 @@ export class UserService {
       })
       .pipe(
         map(
-          (res) => ({success: true, action: 'create', data: res})
+          (res) => ({success: true, action: 'ADD', data: res})
         ),
         catchError(
-          (e) => of({success: false, action: 'create', error: this.handleError(e, user)})
+          (e) => of({success: false, action: 'ADD', error: this.handleError(e, user)})
         )
-      );      
+      );
   }
 
   // Single action method for UPDATE
@@ -138,10 +138,10 @@ export class UserService {
       })
       .pipe(
         map(
-          (res) => ({success: true, action: 'update', data: res})
+          (res) => ({success: true, action: 'UPDATE', data: res})
         ),
         catchError(
-          (e) => of({success: false, action: 'update', error: this.handleError(e, user)})
+          (e) => of({success: false, action: 'UPDATE', error: this.handleError(e, user)})
         )
       );
   }
@@ -156,10 +156,10 @@ export class UserService {
       .pipe(
         map(
           // When successfull, the result is in practice null, as the delete action gives back no data (html-code 204)
-          (res) => ({success: true, action: 'delete', data: {primary_id: user.primary_id}})
+          (res) => ({success: true, action: 'DELETE', data: {primary_id: user.primary_id}})
         ),
         catchError(
-          (e) => of({success: false, action: 'delete', error: this.handleError(e, user)})
+          (e) => of({success: false, action: 'DELETE', error: this.handleError(e, user)})
         )
       );
   }
@@ -191,7 +191,7 @@ switch (profileType) {
               return this.updateUser(user, original);
             }
           }),
-          catchError((e) => of({success: false, action: 'update', error: this.handleError(e, user)})),
+          catchError((e) => of({success: false, action: 'UPDATE', error: this.handleError(e, user)})),
     );
     case "SYNC":
       console.log('Starting sync action with sync user: ', currUser);
@@ -203,11 +203,11 @@ switch (profileType) {
               const hasUpdate = this.triggerUpdate(currUser, user);
               //console.log('Update check outcome: ', hasUpdate);
               if(hasUpdate){
-                //console.log('Found relevant differences - will do update');
+                console.log('Found relevant differences - will do update');
               return this.updateUser(user, currUser);
               } else {
                 console.log('No relevant differences found - will forego update');
-                return of({success: true, action: 'no update', data: currUser}) ;
+                return of({success: true, action: 'NO_ACTION', data: currUser}) ;
               }
           }
       case "DELETE":

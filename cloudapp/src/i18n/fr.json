@@ -1,13 +1,20 @@
 {
   "Cancel": "Annuler",
   "Main": {
-    "ConfirmCreateUsers": "Êtes-vous sûr que vous voulez {type, select, ADD {créer} UPDATE {mettre à jour} DELETE {supprimer}} {count} utilisateurs dans Alma ?",
+    "ConfirmCreateUsers": "Êtes-vous sûr que vous voulez {type, select, ADD {créer} UPDATE {créer/mettre à jour} SYNC {créer/mettre à jour} DELETE {supprimer}} {count} utilisateurs dans Alma ?",
+    "HasErrors": "Une ou plusieurs erreurs se sont produites : ",
+    "ConfigError": "Impossible de charger la configuration de l'application. Essayez de fermer et de rouvrir l'application. Si le problème persiste, contactez le support de votre bibliothèque.",
+    "CsvParseError": "Erreur dans le fichier CSV à la ligne",
+    "CsvError": "Le ficher CSV n'a pas pu être analysé. Veuillez vérifier votre fichier.",
+    "FieldMismatchError": "Un ou plusieurs champs manquent dans le fichier csv: ",
+    "SyncSetError": "La liste actuelle des comptes utilisateur ne pouvait pas être collectée pour la synchronisation. Veuillez réessayer plus tard.",
+    "UnknownError": "Une erreur inattendue s'est produite lors du traitement.",
     "DragCsv": "Faites glisser un fichier CSV ici ou cliquez pour sélectionner un fichier sur votre ordinateur",
-    "Failed": "Importation échouée",
+    "Failed": "Importation échouée: {action, select, ADD {Add} UPDATE {Update} DELETE {Delete} NO_ACTION {Aucune change détectée}}",
     "Finished": "Importation Terminée",
     "LoadUsers": "Importer",
     "Parsing": "Analyse du fichier CSV en cours",
-    "Processed": "Importation réussie",
+    "Processed": "Importation réussie: {action, select, ADD {Add} UPDATE {Update} DELETE {Delete} NO_ACTION {Aucune change détectée}}",
     "ResultsSummary": "{successCount} {successCount, plural, =1 {utilisateur} other {utilisateurs}} importé(s) avec succès et {errorCount} {errorCount, plural, =1 {erreur} other {erreurs}}.",
     "SelectProfile": "Selectionnez un profil",
     "ShowLog": "Afficher résultats"
