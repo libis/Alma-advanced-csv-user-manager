@@ -12,7 +12,8 @@ export interface Profile {
 export enum ProfileType {
   ADD = "ADD",
   UPDATE = "UPDATE",
-  DELETE = "DELETE"//,
+  DELETE = "DELETE",
+  SYNC = "SYNC"//,
   //ENRICH = "ENRICH", // Deprecated due to extended configuration options for update profiles
 }
 

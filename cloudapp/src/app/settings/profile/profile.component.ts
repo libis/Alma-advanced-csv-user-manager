@@ -39,5 +39,5 @@ export class ProfileComponent implements OnInit {
   get fields() { return this.form ? (this.form.get('fields') as FormArray) : new FormArray([])}
   get accountType() { return this.form ? (this.form.get('accountType') as FormControl) : new FormControl('')}
   get profileType() { return this.form ? (this.form.get('profileType') as FormControl) : new FormControl('')}
-  get showColumns() {return this.profileType.value === 'UPDATE' ? this.displayedColumns['Update']: this.displayedColumns['Base']}
+  get showColumns() {return ['UPDATE', 'SYNC'].includes(this.profileType.value) ? this.displayedColumns['Update']: this.displayedColumns['Base']}
 }

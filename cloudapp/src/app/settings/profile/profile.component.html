@@ -11,6 +11,7 @@
     <mat-select [formControl]="profileType">
       <mat-option value="ADD"><span translate>Profile.ADD</span></mat-option>
       <mat-option value="UPDATE"><span translate>Profile.UPDATE</span></mat-option>
+      <mat-option value="SYNC"><span translate>Profile.SYNC</span></mat-option>
       <mat-option value="DELETE"><span translate>Profile.DELETE</span></mat-option>
       <!---<mat-option value="ENRICH"><span translate>Profile.Enrich</span></mat-option>-->
     </mat-select>
@@ -99,7 +100,7 @@
     </ng-container>
     
     <!-- Name Column -->
-    <ng-container matColumnDef="swap" *ngIf="profileType.value === 'UPDATE'">
+    <ng-container matColumnDef="swap" *ngIf="['UPDATE', 'SYNC'].includes(profileType.value)">
       <mat-header-cell *matHeaderCellDef translate>Profile.Swap</mat-header-cell>
       <mat-cell *matCellDef="let field" [formGroup]="field" >
         <mat-form-field floatLabel="never" appearance="fill">

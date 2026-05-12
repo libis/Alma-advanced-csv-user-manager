@@ -4,90 +4,229 @@ import {
   HttpMethod,
   RestErrorResponse,
 } from "@exlibris/exl-cloudapp-angular-lib";
-import { of } from "rxjs";
-import { catchError, switchMap, map } from "rxjs/operators";
+import { EMPTY, Observable, of } from "rxjs";
+import { catchError, switchMap, map, expand, reduce, retry } from "rxjs/operators";
 import { Field, Profile } from "../models/settings";
 import * as dot from "dot-object";
 import { ARRAY_INDICATOR, COMPOSITE_FIELDS } from "../models/settings-utils";
+import { CsvUser, CsvAddUser, syncUser, CsvUpdateUser } from "../models/user";
+
+export interface UserResponse {
+  user: any[],
+  total_record_count: number
+}
+
+export interface UpdateResult {
+  //user: syncUser;
+  success: boolean;
+  action: string;
+  data?: string;
+  error?: RestErrorResponse;
+}
+
+const STRING_FIELDS = ['primary_id', 'first_name', 'middle_name', 'last_name', 'password', 'force_password_change', 'pref_first_name', 'pref_middle_name', 'pref_last_name', 'external_id', 'job_description', 'pin_number', 'line1', 'line2','line3', 'line4', 'line5', 'city','state_province','postal_code','email_address','phone_number', 'value', 'note', 'note_text', 'user_viewable', 'popup_note'];
+const VALUE_FIELDS = ['account_type', 'user_group', 'campus_code', 'preferred_language', 'record_type', 'job_category', 'user_title', 'status', 'country', 'id_type', 'note_type', 'category_type', 'statistic_category'];
+const VALUE_LISTS = ['address_type', 'email_type', 'phone_type']
+const OBJECT_LISTS = ['address', 'email', 'phone', 'user_identifier', 'user_note', 'proxy_for_user']
+const DATE_FIELDS = ['birth_date', 'expiry_date', 'purge_date'];
+const CODE_FIELDS = ['rs_library']
 
 @Injectable({
   providedIn: "root",
 })
 export class UserService {
+  private readonly PAGE_SIZE: number = 100;
+
   constructor(private restService: CloudAppRestService) {}
 
   // *** Method Group 1: General use methods
-
   private checkRepeatableField(fieldName: string): boolean {
     return ARRAY_INDICATOR.test(fieldName);
   }
 
-  private handleError(e: RestErrorResponse, user: any) {
-    const props = ["primary_id", "last_name", "first_name"].map((p) => user[p]);
+  private handleError(e: RestErrorResponse, user: syncUser) {
+    // Depending on the action type, return a coherent set of userdata
     if (user) {
-      e.message = e.message + ` (${props.join(", ")})`;
+    const user_props = [user.primary_id];
+    if(user.ADD !== undefined && user.ADD.first_name && user.ADD.last_name){
+      user_props.push(user.ADD.last_name);
+      user_props.push(user.ADD.first_name);
+    }
+    
+      e.message = e.message + ` (${user_props.join(", ")})`;
     }
     return e;
   }
 
   // *** Method Group 2: API actions
-
   // Collect full user set
-  private getAllUsers(profile: Profile): any[] {
-    return [];
-  }
+  getAllUsers(): Observable<any[]> {
 
-  // Get user account - if the user is not found, the method returns null
-  private getUser(user: any) {
-    return this.restService.call(`/users/${user.primary_id}`).pipe(
-      catchError((e) => {
-        if (
-          e.error &&
-          e.error.errorList &&
-          e.error.errorList.error[0].errorCode == "401861"
-        ) {
-          return of(null);
-        } else {
-          throw e;
-        }
+    const getUsersPage = (offset: number) =>
+      this.restService.call<UserResponse>({
+        url: `/users?offset=${offset.toString()}&limit=${this.PAGE_SIZE.toString()}&expand=full`,
+        method: HttpMethod.GET
+      }).pipe(
+        retry(3)
+      );
+
+    return getUsersPage(0).pipe(
+
+      // Recursively load additional pages
+      expand((response, index) => {
+        const nextOffset = (index + 1) * this.PAGE_SIZE;
+
+        return nextOffset < response.total_record_count
+          ? getUsersPage(nextOffset)
+          : EMPTY;
       }),
+
+      // Extract just the user arrays
+      map(response => response.user),
+
+      // Merge all pages into one array
+      reduce(
+        (allUsers, users) => [...allUsers, ...users],
+        [] as any[]
+      )
     );
   }
 
-  // Add a new user
-  private createUser(user: any) {
+  // Get user account - if the user is not found, the method returns null
+  // private getUser(user: any) {
+  //   return this.restService.call(`/users/${user.primary_id}`).pipe(
+  //     catchError((e) => {
+  //       if (
+  //         e.error &&
+  //         e.error.errorList &&
+  //         e.error.errorList.error[0].errorCode == "401861"
+  //       ) {
+  //         return of(null);
+  //       } else {
+  //         return of (e)
+  //       }
+  //     }),
+  //   );
+  // }
+
+  // Single action method for ADD
+  private createUser(user: syncUser) {
     return this.restService
       .call({
         url: "/users",
         method: HttpMethod.POST,
-        requestBody: user,
+        requestBody: user['ADD'],
       })
-      .pipe(catchError((e) => of(this.handleError(e, user))));
+      .pipe(
+        map(
+          (res) => ({success: true, action: 'ADD', data: res})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'ADD', error: this.handleError(e, user)})
+        )
+      );
   }
 
-  private updateUser(user: any) {
+  // Single action method for UPDATE
+  private updateUser(user: syncUser, currUser: any) {
+    this.calcUpdatedUser(currUser, user);    
     return this.restService
       .call({
         url: `/users/${user.primary_id}`,
         method: HttpMethod.PUT,
-        requestBody: user,
+        requestBody: currUser,
       })
-      .pipe(catchError((e) => of(this.handleError(e, user))));
+      .pipe(
+        map(
+          (res) => ({success: true, action: 'UPDATE', data: res})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'UPDATE', error: this.handleError(e, user)})
+        )
+      );
   }
 
-  private deleteUser(user: any) {
+  // Single action method for delete
+  private deleteUser(user: syncUser) {
     return this.restService
       .call({
         url: `/users/${user.primary_id}`,
         method: HttpMethod.DELETE,
       })
       .pipe(
-        map(() => ({ primary_id: user.primary_id })),
-        catchError((e) => of(this.handleError(e, user))),
+        map(
+          // When successfull, the result is in practice null, as the delete action gives back no data (html-code 204)
+          (res) => ({success: true, action: 'DELETE', data: {primary_id: user.primary_id}})
+        ),
+        catchError(
+          (e) => of({success: false, action: 'DELETE', error: this.handleError(e, user)})
+        )
       );
   }
 
-public processCustomUser(user: any, profileType: string) {
+// Final candidate method
+public processSingleUser(user: syncUser, profileType: string, currUser: any|undefined = undefined){
+switch (profileType) {
+      case "ADD":
+        return this.createUser(user);
+
+      //case "ENRICH": // Deprecated due to extension update configuration functionality
+      case "UPDATE":
+        return this.restService.call(`/users/${user.primary_id}`).pipe(
+          catchError((e) => {
+            if (
+              e.error &&
+              e.error.errorList &&
+              e.error.errorList.error[0].errorCode == "401861"
+            ) {
+              return of(null);
+            } else {
+              throw e;
+            }
+          }),
+          switchMap((original) => {
+            if (original == null) {
+              return this.createUser(user);
+            } else {
+              return this.updateUser(user, original);
+            }
+          }),
+          catchError((e) => of({success: false, action: 'UPDATE', error: this.handleError(e, user)})),
+    );
+    case "SYNC":
+      console.log('Starting sync action with sync user: ', currUser);
+          if (currUser === null) {
+            //console.log('Creating new user as part of sync', user);
+              return this.createUser(user);
+            } else {
+              //console.log('Checking if update is needed as part of sync');
+              const hasUpdate = this.triggerUpdate(currUser, user);
+              //console.log('Update check outcome: ', hasUpdate);
+              if(hasUpdate){
+                console.log('Found relevant differences - will do update');
+              return this.updateUser(user, currUser);
+              } else {
+                console.log('No relevant differences found - will forego update');
+                return of({success: true, action: 'NO_ACTION', data: currUser}) ;
+              }
+          }
+      case "DELETE":
+        return this.deleteUser(user);
+      
+      default:
+          return of({success: false, action: 'unknown', error:{
+            ok: false,
+            status:'unknown',
+            statusText:'unknown',
+            message: 'Unknown profile type - could not perform action',
+            error: 'Unknown profile type'
+          }
+        })
+      }
+}
+
+// Original method
+public processCustomUser(user: syncUser, profileType: string, currUser: any|undefined = undefined) {
     switch (profileType) {
       case "ADD":
         return this.restService
@@ -96,7 +235,8 @@ public processCustomUser(user: any, profileType: string) {
             method: HttpMethod.POST,
             requestBody: user['ADD'],
           })
-          .pipe(catchError((e) => of(this.handleError(e, user['ADD']))));
+          .pipe(
+            catchError((e) => of(this.handleError(e, user))));
       //case "ENRICH": // Deprecated due to extension update configuration functionality
       case "UPDATE":
         return this.restService.call(`/users/${user.primary_id}`).pipe(
@@ -120,7 +260,7 @@ public processCustomUser(user: any, profileType: string) {
               });
             } else {
               this.calcUpdatedUser(original, user);
-              delete original["user_role"];             
+              delete original["user_role"];
               return this.restService.call({
                 url: `/users/${user.primary_id}`,
                 method: HttpMethod.PUT,
@@ -130,6 +270,28 @@ public processCustomUser(user: any, profileType: string) {
           }),
           catchError((e) => of(this.handleError(e, user))),
     );
+    case "SYNC":
+          if (currUser == null) {
+              return this.restService.call({
+                url: "/users",
+                method: HttpMethod.POST,
+                requestBody: user['ADD'],
+              }).pipe(
+                catchError((e) => of(this.handleError(e, user)))  
+              );
+            } else {
+              const doUpdate = this.triggerUpdate(currUser, user);
+              console.log('Has updates: ', doUpdate);
+              this.calcUpdatedUser(currUser, user);
+              delete currUser["user_role"];
+              return this.restService.call({
+                url: `/users/${user.primary_id}`,
+                method: HttpMethod.PUT,
+                requestBody: currUser,
+              }).pipe(
+                catchError((e) => of(this.handleError(e, user)))  
+              );
+          }
       case "DELETE":
         return this.restService
           .call({
@@ -140,64 +302,149 @@ public processCustomUser(user: any, profileType: string) {
             map(() => ({ primary_id: user.primary_id })),
             catchError((e) => of(this.handleError(e, user))),
           );
-    }
+        default:
+          return of()
   }
+}
 
+// Final candidate method - used to detect changes within a field
+private matchUserField(oldField:any, newField:any, fieldKey: string) : boolean {
+        if(Array.isArray(newField)){
+          //console.log('Entering Array match method: ', fieldKey);
+          return (newField.every( item =>
+            oldField.some((elem:any) =>
+              this.matchUserField(elem, item, fieldKey)
+            )
+          )
+          &&
+          oldField.every( (item:any) =>
+            newField.some(elem =>
+              this.matchUserField(item, elem, fieldKey)
+            )
+          )
+          );
+        }
+
+        else if(newField && oldField && (typeof newField === 'object')){
+          //console.log('Entering object match method: ', fieldKey);
+          return Object.keys(newField).every( key => 
+          (key in oldField) && this.matchUserField(oldField[key], newField[key], key)
+          )
+        }
+
+        else if(['birth_date', 'expiry_date', 'purge_date'].includes(fieldKey)){
+          //console.log('Entering date matching method: ', fieldKey);
+          return oldField === `${newField}Z`;
+        }
+
+        else {
+          //console.log('Entering default field matching method: ', fieldKey);
+          //console.log(`old field: ${oldField}, new field: ${newField}, fieldKey: ${fieldKey} => ${oldField === newField}`);
+          return oldField === newField;
+        }
+}
+
+// Final candidate method
+// Verify if the user has meaningful updates. The method will return true as soon as a single updated field is found
+ private triggerUpdate(oldUser: any, newUser: any): boolean {
+  //console.log('Starting update check for update user: ', newUser);
+    // If 'enrich' is enabled, assume update (< enrich is intended specifically to add data)
+    if(('ENRICH' in newUser) && Object.keys(newUser['ENRICH']).length > 0){
+      //console.log('Default update because of enrich strategy');
+      return true;
+    }
+
+    // If 'replace' is enabled for any field, compare existing and updated user object
+    if('REPLACE' in newUser){
+      //console.log('Verifying effective updates based on replace user: ', newUser['REPLACE'])
+            
+      for (const key in newUser['REPLACE'])
+        {
+          if(!(key in oldUser)){
+            //console.log('Update because of missing key: ', key)
+            return true;
+          }
+
+          const matchField = this.matchUserField(oldUser[key], newUser['REPLACE'][key], key);
+          //console.log('Match outcome: ', key, matchField);
+        
+          if(!this.matchUserField(oldUser[key], newUser['REPLACE'][key], key)){
+            //console.log('Update due to field mismatch: ', oldUser[key], newUser['REPLACE'][key], key);
+            return true;
+          }
+      }
+    }
+    return false;
+ }
 
   // *** Method Group 3: User parsing methods
 
-  // Build user objects based on csv user input
-  public buildCsvUser(user: { [key: string]: string }, selectedProfile: Profile): any {
-    let csvUser = {'primary_id':undefined};
-    if(selectedProfile.fields.find(f => f.fieldName === 'primary_id') !== undefined){
-      csvUser.primary_id = user[selectedProfile.fields.find(f => f.fieldName === 'primary_id').header].toLowerCase();
-    }
+  private postProcessContactInfo(newUser: any){
 
-    // If profile includes create option, add create objects
-    if (["ADD", "UPDATE"].includes(selectedProfile.profileType)) {
-      // Create basic user object using all fields defined in the profile
-      let newUser = this.parseCsvFields(user, selectedProfile.fields);
-
-      // Add general settings
-      newUser["account_type"] = { value: selectedProfile.accountType };
-
-      // Apply postprocessing to contact details
-      /* Preferred address, email, phone */
-      if (newUser["contact_info"]) {
+    if (newUser["contact_info"]) {
         if (
           Array.isArray(newUser["contact_info"]["address"]) &&
-          newUser["contact_info"]["address"].length > 0
-        )
+          newUser["contact_info"]["address"].length > 0 &&
+          !newUser["contact_info"]["address"].some((address) => address["preferred"] === true)
+        ) {
           newUser["contact_info"]["address"][0]["preferred"] = true;
+        }
         if (
           Array.isArray(newUser["contact_info"]["email"]) &&
-          newUser["contact_info"]["email"].length > 0
-        )
+          newUser["contact_info"]["email"].length > 0 &&
+          !newUser["contact_info"]["email"].some((email) => email["preferred"] === true)
+        ){
+          console.log('Triggering Contact info postprocessing');
           newUser["contact_info"]["email"][0]["preferred"] = true;
+        }
         if (
           Array.isArray(newUser["contact_info"]["phone"]) &&
-          newUser["contact_info"]["phone"].length > 0
+          newUser["contact_info"]["phone"].length > 0 &&
+          !newUser["contact_info"]["phone"].some((phone) => phone["preferred"] === true)
         ) {
           newUser["contact_info"]["phone"][0]["preferred"] = true;
           newUser["contact_info"]["phone"][0]["preferred_sms"] = true;
         }
       }
-      csvUser["ADD"] = newUser;
+  }
+
+  // Build sync user objects. Input: unprocessed CSV row => Output: complete sync user matching profile requirements
+  public buildCsvUser(user: { [key: string]: string }, selectedProfile: Profile): syncUser {
+    // Initialize new syncUser. Primary ID is set to an empty string as initial value (~ use case: user creation with automated ID assignment)
+    let csvUser: syncUser = {'primary_id':''};
+    const id_column = selectedProfile.fields.find(f => f.fieldName === 'primary_id');
+    if(id_column !== undefined && id_column.header in user){
+      csvUser.primary_id = user[id_column.header].toLowerCase();
+    }  
+
+    // If profile includes create option, add create objects
+    if (["ADD", "UPDATE", "SYNC"].includes(selectedProfile.profileType)) {
+      //console.log("Building add user with profile fields: ", selectedProfile.fields);
+      // Create basic user object using all fields defined in the profile
+      let newUser: CsvUser = this.parseCsvFields(user, selectedProfile.fields);
+
+      // Add general settings
+      newUser["account_type"] = { value: selectedProfile.accountType };
+      // Post process contact info to ensure that preferred contact info is set
+      this.postProcessContactInfo(newUser);
+
+      //console.log("Built user object: ", newUser);
+      csvUser["ADD"] = newUser as CsvAddUser;
     }
 
     // If profile includes update options, add update and enrich objects
-    if (["UPDATE", "ENRICH"].includes(selectedProfile.profileType)) {
-      csvUser["REPLACE"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "REPLACE"));
+    if (["UPDATE", "SYNC"].includes(selectedProfile.profileType)) {
+      csvUser["REPLACE"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "REPLACE")) as CsvUpdateUser;
 
-      csvUser["ENRICH"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "ENRICH"));
+      csvUser["ENRICH"] = this.parseCsvFields(user,selectedProfile.fields.filter((f) => f.swap === "ENRICH")) as CsvUpdateUser;      
     }
  
     return csvUser;
   }
 
-  // Build base user containing only csv fields
-  private parseCsvFields(user: { [key: string]: string }, fieldset: Field[]) {
-    let parsedUser = {};
+  // Build base user containing only csv fields. Input: unprocessed CSV row => Output: Basic CSVuser (no specific type)
+  private parseCsvFields(user: { [key: string]: string }, fieldset: Field[]): CsvUser {
+    let parsedUser: { [key: string]: string } = {};
     fieldset.forEach((f) => {
       let fieldName = f.fieldName;
 
@@ -211,7 +458,7 @@ public processCustomUser(user: any, profileType: string) {
 
       // Process fields. If a csv column is identified, values from this column are used. Else, if a default is defined, the default value is used.
       if (f.header !== "" && user[f.header] !== "") {
-        if(f.fieldName == 'primary_id'){
+        if(f.fieldName === 'primary_id'){
           user[f.header] = user[f.header].toLowerCase();
         }
         parsedUser[fieldName] = user[f.header];
@@ -228,13 +475,21 @@ public processCustomUser(user: any, profileType: string) {
 
   private calcUpdatedUser(origUser:any, csvUser: any){
 
+    // Remove user roles to avoid accidental updates to this section
+    delete origUser["user_role"];
+
+    // Apply field replacement actions
     if('REPLACE' in csvUser){
     this.replaceUserFields(origUser, csvUser['REPLACE']);
     }
 
+    // Apply field enrichment actions
     if('ENRICH' in csvUser){
       this.enrichUserFields(origUser, csvUser['ENRICH']);
     }
+
+    // Call postprocessing on Contact info to ensure preferred are set for each block
+    this.postProcessContactInfo(origUser);
   }
 
   private replaceUserFields(origUser: any, replaceUser: any){
@@ -282,7 +537,7 @@ public processCustomUser(user: any, profileType: string) {
   }
 
   // Copied from original Cloud App
-  private enrichRepeatableElement(originalElements, newElements) {
+  private enrichRepeatableElement(originalElements: any, newElements: any) {
     // This function will copy any of the originalElements into the newElements, thereby
     // adding repeatable elements. Thus, when the PUT happens, the "swap all" will include both
     // old and new repeatables.
@@ -291,5 +546,5 @@ public processCustomUser(user: any, profileType: string) {
         newElements.splice(newElements.length, 0, originalElements[i]);
       }
     }
-  }  
+  } 
 }

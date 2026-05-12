@@ -4,8 +4,8 @@ import { marker as _ } from '@biesbjerg/ngx-translate-extract-marker';
  export const ARRAY_INDICATOR = new RegExp(/\[\d*\]/);
 
     export const COMPOSITE_FIELDS = {
-      'contact_info.address[]': 'Physical address'
-      ,'contact_info.email[]': 'Email',
+      'contact_info.address[]': 'Physical address',
+      'contact_info.email[]': 'Email',
       'contact_info.phone[]': 'Phone',
       'user_identifier[]': 'Identifier',
       'user_note[]': 'User notes',

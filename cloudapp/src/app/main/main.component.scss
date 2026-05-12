@@ -38,3 +38,16 @@ pre {
 .fields-table {
   width: 100%;
 }
+
+.errorZone {
+  background-color: mistyrose;
+  color: darkred;
+  border-radius: 5px;
+  padding: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.errorZone h3 {
+  color: inherit;
+}
