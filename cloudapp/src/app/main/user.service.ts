@@ -203,10 +203,10 @@ switch (profileType) {
               const hasUpdate = this.triggerUpdate(currUser, user);
               //console.log('Update check outcome: ', hasUpdate);
               if(hasUpdate){
-                console.log('Found relevant differences - will do update');
+                //console.log('Found relevant differences - will do update');
               return this.updateUser(user, currUser);
               } else {
-                console.log('No relevant differences found - will forego update');
+                //console.log('No relevant differences found - will forego update');
                 return of({success: true, action: 'NO_ACTION', data: currUser}) ;
               }
           }
