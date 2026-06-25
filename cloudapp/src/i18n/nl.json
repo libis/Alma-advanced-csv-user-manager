@@ -1,6 +1,9 @@
 {
   "Cancel": "Annuleren",
   "Main": {
+    "welcome": "Welkom bij de Alma CSV User Load Manager",
+    "no_profiles": "Er zijn nog geen importprofielen gedefinieerd. Als u de beheerder bent van deze omgeving, kunt u profielen toevoegen via het configuratiemenu. Zo niet, neem dan contact op met uw beheerder om de nodige profielen voor uw use case(s) in te stellen.",
+    "unauthorized": "U heeft niet de vereiste Alma-rollen om deze Cloud App te gebruiken. Als u denkt dat dit een fout is, neem dan contact op met de helpdesk van uw bibliotheek.",
     "ConfirmCreateUsers": "Bent u zeker dat u {count} {type, select, ADD {gebruikers wilt aanmaken} UPDATE {gebruikers wilt aanmaken/updaten} SYNC {gebruikers wilt aanmaken/updaten} DELETE {gebruikers wilt verwijderen}} in Alma?",
     "HasErrors": "Er zijn fouten opgetreden: ",
     "ConfigError": "Configuratie kon niet geladen worden. Probeer de app te sluiten en te herstarten. Als het probleem blijft bestaan, neem contact op met uw bibliotheekhelpdesk.",

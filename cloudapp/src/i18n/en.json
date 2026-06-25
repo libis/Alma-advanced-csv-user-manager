@@ -1,6 +1,9 @@
 {
   "Cancel": "Cancel",
   "Main": {
+    "welcome": "Welcome to the Alma CSV User Load Manager",
+    "no_profiles": "There are no templates defined yet. If you are the administrator of this environment, you can add profiles through the configuration menu. If not, contact your administrator to set up the necessary profiles for your use case(s).",
+    "unauthorized": "You do not have the required Alma roles to use this application. If you believe this is an error, please contact your library helpdesk.",
     "ConfirmCreateUsers": "Are you sure you want to {type, select, ADD {create} UPDATE {create/update} SYNC {create/update} DELETE {DELETE}} {count} users in Alma?",
     "HasErrors": "One or more errors has occurred: ",
     "ConfigError": "Could not load app configuration. Try closing and reopening the app. If the problem persists, contact your library helpdesk.",

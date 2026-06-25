@@ -61,6 +61,7 @@ export class MainComponent implements OnInit {
   config: Settings = { profiles: [] };
   selectedProfile!: Profile;
   user: any; // note: this property relates to the loggedin user, not a user for import
+  authorized: boolean = false;
 
   // CSV input and prechecks
   files: File[] = [];
@@ -117,7 +118,13 @@ export class MainComponent implements OnInit {
       (user) => {
         this.user = user;
         this.translate.use(this.user.preferred_language.value);
-        //console.log("Logged in user language: ", this.user.preferred_language.value  );
+        //console.log("Logged in user language: ", this.user.user_role);
+        //console.log("has API role: ", this.user.user_role.filter(r => r.role_type.desc === 'API Infra Read'));
+        //console.log("has user manager role: ", this.user.user_role.filter(r => r.role_type.desc === 'User Manager'));
+        if (this.user.user_role.filter(r => r.role_type.desc === 'API Infra Read').length > 0 && this.user.user_role.filter(r => r.role_type.desc === 'User Manager').length > 0) {
+          this.authorized = true;
+        }
+        //console.log("Authorized user: ", this.authorized);
       },
       (err) => {
         console.error("Could not retrieve user data: " + err.message);
